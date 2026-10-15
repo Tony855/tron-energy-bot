@@ -19,14 +19,20 @@ async function main() {
   if (bot) {
     const { t, SUPPORTED } = require('./i18n');
     const CMD_LIST = ['start','balance','wallets','addwallet','deposit','withdraw','transactions','status','report','referral','help','language'];
+    // Telegram 只接受 ISO 639-1 小写代码（zh、en）；内部标识 zh-CN 需映射
+    const TG_LANG = { 'zh-CN': 'zh', 'en': 'en' };
     const buildCommands = (lang) => CMD_LIST.map(c => ({ command: c, description: t(lang, 'cmd.' + c) }));
     for (const lang of SUPPORTED) {
+      const tg = TG_LANG[lang];
+      if (!tg) { console.warn(`[bot] no Telegram language code for ${lang}, skip`); continue; }
       try {
-        await bot.api.setMyCommands(buildCommands(lang), { language_code: lang });
+        await bot.api.setMyCommands(buildCommands(lang), { language_code: tg });
+        console.log(`[bot] setMyCommands(${tg}) ok`);
       } catch (e) {
-        console.error(`[bot] setMyCommands(${lang}) failed:`, e.message);
+        console.error(`[bot] setMyCommands(${tg}) failed:`, e.message);
       }
     }
+    console.log('[bot] starting polling...');
     await bot.start();
     console.log('[bot] Telegram bot started');
   }
