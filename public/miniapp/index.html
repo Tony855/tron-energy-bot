@@ -237,7 +237,7 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
 <body>
 <div id="app">
   <div class="top">
-    <div class="brand"><div class="logo">ϟ</div><div>TRON 能量中心<div class="sub" style="margin-top:3px">钱包 · 资源 · 交易</div></div></div>
+    <div class="brand"><div class="logo">ϟ</div><div>TRON 能量中心<div class="sub" style="margin-top:3px">监听 · 资源 · 交易</div></div></div>
     <span class="pill">● 安全连接</span>
   </div>
 
@@ -251,23 +251,23 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
 
   <div class="section"><h2>服务概览</h2><span class="sub">实时请求</span></div>
   <div class="grid">
-    <div class="card"><div class="label">监控钱包</div><div class="value">{{ wallets.length }}</div><div class="unit">已启用地址</div></div>
+    <div class="card"><div class="label">监听地址</div><div class="value">{{ wallets.length }}</div><div class="unit">已启用地址</div></div>
     <div class="card"><div class="label">能量服务</div><div class="value" style="font-size:17px">{{ me?.capabilities?.energyProviderConfigured ? '已配置' : '暂未开通' }}</div><div class="unit">供应商状态</div></div>
   </div>
 
   <div class="section"><h2>管理中心</h2><button class="btn" @click="refresh" :disabled="loading">{{ loading ? '刷新中…' : '↻ 刷新数据' }}</button></div>
   <div class="tabs">
-    <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">我的钱包</button>
+    <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">我的地址</button>
     <button class="tab" :class="{active:tab==='transactions'}" @click="tab='transactions';loadTransactions()">交易记录</button>
     <button class="tab" :class="{active:tab==='orders'}" @click="tab='orders';loadOrders()">能量订单</button>
   </div>
 
   <div v-if="error" class="error">{{ error }}</div>
   <template v-if="tab==='wallets'">
-    <div v-if="!wallets.length && !loading" class="empty">暂无启用的钱包地址<br>请先在机器人中使用“钱包管理”添加地址。</div>
+    <div v-if="!wallets.length && !loading" class="empty">暂无启用的监听地址<br>请先在机器人中使用“监听管理”添加地址。</div>
     <div class="list">
       <div class="item" v-for="w in wallets" :key="w.id">
-        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?'充值钱包':'监控钱包') }}</strong><span class="tag">{{ w.wallet_type==='deposit'?'充值地址':'监控地址' }}</span></div>
+        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?'充值地址':'监听地址') }}</strong><span class="tag">{{ w.wallet_type==='deposit'?'充值地址':'监控地址' }}</span></div>
         <div class="address">{{ w.address }}</div>
         <div class="sub" style="margin-top:8px">最后扫描：{{ w.last_scanned_at || '暂无记录' }}</div>
         <div class="actions"><button class="btn primary" @click="loadResources(w)">查询链上资源</button></div>
@@ -289,7 +289,7 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
     <div v-if="!transactions.length" class="empty">暂无已入库交易记录。</div>
     <div class="list"><div class="item" v-for="(t,i) in transactions" :key="t.tx_hash+'-'+t.event_index">
       <div class="itemtop"><strong>{{ t.amount }} <small>代币单位</small></strong><span class="tag">{{ Number(t.confirmed)===1?'已确认':'待确认' }}</span></div>
-      <div class="sub" style="margin-top:9px">钱包：{{ short(t.wallet_address) }}</div>
+      <div class="sub" style="margin-top:9px">地址：{{ short(t.wallet_address) }}</div>
       <div class="hash">交易哈希：{{ t.tx_hash }}</div>
       <div class="sub" style="margin-top:7px">{{ time(t.block_timestamp) }}</div>
     </div></div>
