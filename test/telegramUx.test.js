@@ -32,5 +32,5 @@ test('Telegram command menu is registered at startup', () => {
   assert.match(index, /setMyCommands/);
   assert.match(index, /setMyCommands/);
   assert.match(index, /buildCommands/);
-  assert.match(index, /language_code: lang/);
+  assert.match(index, /language_code: tg/);
 });
