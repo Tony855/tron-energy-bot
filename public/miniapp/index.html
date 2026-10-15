@@ -274,8 +274,12 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
         <div v-if="resourceFor===w.id && resource" class="grid" style="margin-top:12px">
           <div class="card"><div class="label">TRX 余额</div><div class="value">{{ resource.trx }}</div><div class="unit">TRX</div></div>
           <div class="card"><div class="label">USDT 余额</div><div class="value">{{ resource.usdt ?? '查询不可用' }}</div><div class="unit">TRC20</div></div>
-          <div class="card"><div class="label">能量</div><div class="value">{{ resource.energyLimit }}</div><div class="unit">已使用 {{ resource.energyUsed }}</div></div>
-          <div class="card"><div class="label">带宽</div><div class="value">{{ resource.netLimit }}</div><div class="unit">已使用 {{ resource.netUsed }}</div></div>
+          <div class="card"><div class="label">能量</div><div class="value">{{ resource.energyLimit ?? 0 }}</div><div class="unit">已使用 {{ resource.energyUsed ?? 0 }}</div></div>
+          <div class="card">
+            <div class="label">带宽</div>
+            <div class="value">{{ (Number(resource.netLimit)||0) + (Number(resource.freeNetLimit)||0) }}</div>
+            <div class="unit">已使用 {{ (Number(resource.netUsed)||0) + (Number(resource.freeNetUsed)||0) }}</div>
+          </div>
         </div>
       </div>
     </div>
