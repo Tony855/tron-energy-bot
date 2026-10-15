@@ -150,7 +150,9 @@ router.get('/wallets/:id/resources', async (req, res) => {
       energyLimit: account.energyLimit,
       energyUsed: account.energyUsed,
       netLimit: account.netLimit,
-      netUsed: account.netUsed
+      netUsed: account.netUsed,
+      freeNetLimit: account.freeNetLimit,
+      freeNetUsed: account.freeNetUsed
     });
   } catch {
     res.status(502).json({ error: '链上查询暂时不可用，请稍后重试' });

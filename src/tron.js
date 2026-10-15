@@ -56,15 +56,39 @@ function rawToDecimal(raw, decimals) {
 }
 
 async function getAccount(address) {
-  const account = await post('/wallet/getaccount', { address, visible: true });
-  const resources = await post('/wallet/getaccountresource', { address, visible: true });
+  const account = await post('/wallet/getaccount', {
+    address, visible: true
+  });
+  const resources = await post('/wallet/getaccountresource', {
+    address, visible: true
+  });
+
+  const accountResource = account.account_resource || {};
+
   return {
     address,
     trx: (Number(account.balance || 0) / 1e6).toFixed(6),
-    energyLimit: resources.EnergyLimit || 0,
-    energyUsed: resources.EnergyUsed || 0,
-    netLimit: resources.NetLimit || 0,
-    netUsed: resources.NetUsed || 0
+
+    // Energy 额度来自账户自己的资源上限，不使用全网参数。
+    // 未返回的字段使用 null，避免把未知数据伪装成 0。
+    energyLimit: resources.EnergyLimit == null
+      ? null : Number(resources.EnergyLimit),
+    energyUsed: resources.EnergyUsed != null
+      ? Number(resources.EnergyUsed)
+      : accountResource.energy_usage != null
+        ? Number(accountResource.energy_usage) : null,
+
+    // 质押带宽与免费带宽分别返回。
+    netLimit: resources.NetLimit == null
+      ? null : Number(resources.NetLimit),
+    netUsed: resources.NetUsed != null
+      ? Number(resources.NetUsed)
+      : account.net_usage != null
+        ? Number(account.net_usage) : null,
+    freeNetLimit: resources.freeNetLimit == null
+      ? null : Number(resources.freeNetLimit),
+    freeNetUsed: account.free_net_usage == null
+      ? null : Number(account.free_net_usage)
   };
 }
 
