@@ -29,12 +29,12 @@ async function getOrCreateUser(ctx) {
 }
 
 const menu = new InlineKeyboard()
-  .text('👛 钱包管理', 'wallets').text('⚡ 能量服务', 'energy').row()
-  .text('💰 我的余额', 'balance').text('📥 充值', 'deposit').row()
-  .text('📤 提现申请', 'withdraw').text('🧾 交易记录', 'transactions').row()
-  .text('📡 监听状态', 'status').text('📊 今日报表', 'report').row()
-  .text('🎁 邀请好友', 'referral').text('❓ 帮助中心', 'help').row()
-  .webApp('📱 打开钱包面板', 'https://tron.v2net.cc/miniapp/');
+  .text('👛 钱包管理', 'wallets').text('💰 余额查询', 'balance').row()
+  .text('📥 充值地址', 'deposit').text('📤 提现申请', 'withdraw').row()
+  .text('🧾 交易记录', 'transactions').text('📡 监听状态', 'status').row()
+  .text('📊 今日简报', 'report').text('⚡ 能量服务', 'energy').row()
+  .text('🎁 邀请好友', 'referral').text('❔ 使用帮助', 'help').row()
+  .webApp('▣ 打开钱包控制台', 'https://tron.v2net.cc/miniapp/');
 
 const homeKeyboard = () => new InlineKeyboard().text('🏠 返回主菜单', 'home');
 const walletKeyboard = () => new InlineKeyboard()
@@ -476,19 +476,32 @@ function createBot() {
         .text('📜 全部历史记录', 'wallet:history').row()
         .text('🏠 返回主菜单', 'home');
 
+      const fmtPct = (used, limit) => {
+        const l = Number(limit);
+        const u = Number(used);
+        if (!Number.isFinite(l) || l <= 0 || !Number.isFinite(u) || u < 0) return '暂无数据';
+        return Math.min(100, Math.round(u * 100 / l)) + '%';
+      };
+      const energyLabel = fmtPct(r.energyUsed, r.energyLimit);
+      const netLabel = fmtPct(r.netUsed, r.netLimit);
+      const energyBar = energyLabel === '暂无数据' ? '资源数据暂不可用' : bar(pct(r.energyUsed, r.energyLimit));
+      const netBar = netLabel === '暂无数据' ? '资源数据暂不可用' : bar(pct(r.netUsed, r.netLimit));
+
       await ctx.reply(
-        '<b>钱包资源概览</b>  ·  <i>查询成功</i>\n' +
+        '🔎 <b>监听地址资源</b>\n' +
+        '🟢 <b>查询状态：正常</b>\n' +
         '━━━━━━━━━━━━━━━━━━\n' +
-        '<b>钱包地址</b>\n<code>' + w.address + '</code>\n\n' +
-        '<b>资产余额</b>\n' +
-        'TRX       <b>' + r.trx + '</b> TRX\n' +
-        'USDT      <b>' + usdtBalance + '</b> USDT\n\n' +
-        '<b>链上资源</b>\n' +
-        'Energy     ' + r.energyUsed + ' / ' + r.energyLimit +
-        '  ·  ' + energyPct + '%\n' + bar(energyPct) + '\n' +
-        'Bandwidth  ' + r.netUsed + ' / ' + r.netLimit +
-        '  ·  ' + netPct + '%\n' + bar(netPct) + '\n\n' +
-        '<i>交易记录仅显示本系统已记录的链上事件。尚未由事件源推送的历史交易不会自动显示。</i>',
+        '📍 <b>监听地址</b>\n' +
+        '<code>' + w.address + '</code>\n\n' +
+        '💰 <b>资产余额</b>\n' +
+        '🔴 TRX：<b>' + r.trx + ' TRX</b>\n' +
+        '🟢 USDT (TRC20)：<b>' + usdtBalance + ' USDT</b>\n\n' +
+        '📊 <b>账户资源</b>\n' +
+        '⚡ Energy：' + r.energyUsed + ' / ' + r.energyLimit + '（' + energyLabel + '）\n' +
+        energyBar + '\n' +
+        '📶 Bandwidth：' + r.netUsed + ' / ' + r.netLimit + '（' + netLabel + '）\n' +
+        netBar + '\n\n' +
+        'ℹ️ 收款、付款记录仅包含本系统已记录的链上交易。事件源尚未推送的历史交易不会自动显示。',
         { parse_mode: 'HTML', reply_markup: kb }
       );
     } catch (e) {
