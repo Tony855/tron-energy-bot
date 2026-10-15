@@ -1,7 +1,19 @@
 const { pool } = require('./db');
 
 const { normalizeAmount } = require('./money');
+const { toMicros } = require('./withdrawalPolicy');
 const { assertRechargeCanCredit } = require('./chainDepositVerify');
+
+// 微单位 → 6 位小数字符串（与 DB DECIMAL(30,6) 精度一致）。
+function microsToDecimal(m) {
+  const neg = m < 0n;
+  const abs = neg ? -m : m;
+  const whole = abs / 1000000n;
+  const frac = (abs % 1000000n).toString().padStart(6, '0');
+  const s = `${whole}.${frac}`;
+  return neg ? `-${s}` : s;
+}
+
 
 // Must be called inside a caller-owned MySQL transaction. The unique ledger
 // idempotency_key is the final concurrency guard; the user row lock serializes
@@ -74,8 +86,12 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
       const [settings] = await conn.execute("SELECT setting_value FROM app_settings WHERE setting_key='referral_commission_percent' LIMIT 1");
       const percent = Number(settings[0]?.setting_value ?? process.env.REFERRAL_COMMISSION_PERCENT ?? 3);
       if (Number.isFinite(percent) && percent > 0 && percent <= 100) {
-        const amount = (Number(order.amount) * percent / 100).toFixed(6);
-        if (Number(amount) > 0) {
+        const amtMicros = toMicros(String(order.amount));
+        // 微单位 × 百分比 ÷ 100，向下取整；百分比用 1/100 精度（如 3.25 → 325/10000）
+        const pctScaled = BigInt(Math.round(percent * 100));
+        const commissionMicros = (amtMicros * pctScaled) / 10000n;
+        const amount = microsToDecimal(commissionMicros);
+        if (commissionMicros > 0n) {
           const [existing] = await conn.execute('SELECT id FROM referral_commissions WHERE recharge_order_id=? FOR UPDATE', [order.id]);
           if (!existing.length) {
             const [referrers] = await conn.execute('SELECT id FROM users WHERE id=? FOR UPDATE', [refRows[0].referred_by]);
