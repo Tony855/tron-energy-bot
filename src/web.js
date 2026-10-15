@@ -114,7 +114,40 @@ main > section[data-tab-hidden]{display:none}
 <section><h2>TRON 历史交易补扫（V1.7）</h2><p class="small">仅扫描已分配的专属充值地址；每次每个地址最多 5 页。历史发现的充值仍需人工核验，不会自动入账。</p><input id="backfillFrom" type="date"><input id="backfillTo" type="date"><input id="backfillPages" type="number" min="1" max="5" value="3" style="width:90px"><button onclick="runBackfill()">开始 / 继续补扫</button><button onclick="loadBackfillStatus()">刷新补扫状态</button><pre id="backfillResult" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section>
 <section><h2>充值地址池</h2><p class="small">导入由你在外部安全生成并控制私钥的地址；每行一个地址。系统只保存地址，不保存私钥或助记词。</p><textarea id="addressPoolInput" rows="5" style="width:95%;background:#101d2e;color:#fff" placeholder="T开头的TRON地址，每行一个"></textarea><br><input id="poolLabel" placeholder="来源标签（可选）"><button onclick="importPool()">导入地址池</button><button onclick="loadPool()">刷新地址池</button><p id="poolMsg"></p><div id="poolRows"></div></section><section><h2>已分配充值地址</h2><button onclick="loadWallets()">刷新地址</button><div id="depositWallets"></div></section><section><h2>创建人工充值审核单</h2><input id="rechargeUserId" type="number" min="1" placeholder="用户内部 ID"><input id="rechargeAmount" type="number" min="0.000001" step="0.000001" placeholder="USDT 金额"><input id="rechargeNote" placeholder="备注 / 外部凭证编号"><button onclick="createRecharge()">创建待审核充值</button><p id="rechargeMsg"></p></section>
 <section><h2>待审核充值</h2><button onclick="load()">刷新</button><div id="deposits"></div></section>
-<section><h2>用户</h2><div id="users"></div></section><section><h2>能量订单</h2><div id="orders"></div></section><section><h2>待处理提现</h2><button onclick="loadWithdrawals()">刷新提现</button><div id="withdrawals"></div></section><section><h2>链上充值异常审计（只读）</h2><p class="small">检查已索引的充值交易是否缺少充值单、金额不一致或充值单缺少交易记录；不会自动入账。</p><button onclick="loadChainAudit()">运行链上对账</button><pre id="chainAuditOutput"></pre></section><section><h2>财务账本完整性审计（V1.9）</h2><p class="small">只读检查用户余额与账本差异、已入账充值缺少账本、提现扣款/退款记录缺失及重复提现交易哈希。不会自动修复。</p><button onclick="runFinanceAuditUi()">运行财务审计</button><pre id="financeAuditOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section><section><h2>财务对账</h2><p class="small">汇总来自系统数据库；请独立核对链上交易哈希。</p><input id="reconFrom" type="date"><input id="reconTo" type="date"><button onclick="loadRecon()">查询对账汇总</button><button onclick="exportLedger()">导出账本 CSV</button><pre id="reconOutput"></pre><div id="reconSnapshots"></div></section><section><h2>管理员账号管理（仅超级管理员）</h2><p class="small">创建独立管理员账号并分配最小权限；密码至少 12 位。该功能仅超级管理员可用。</p><input id="newAdminUsername" placeholder="新管理员用户名"><input id="newAdminPassword" type="password" placeholder="初始密码（至少12位）"><select id="newAdminRole"><option value="auditor">只读审计员</option><option value="finance">财务审核员</option><option value="operator">运营人员</option><option value="super_admin">超级管理员</option></select><button onclick="createAdmin()">创建管理员</button><button onclick="loadAdmins()">刷新管理员</button><p id="adminMsg"></p><div id="adminRows"></div></section><section><h2>管理员操作日志</h2><div id="auditLogs"></div></section></div></main>
+<section><h2>用户</h2><div id="users"></div></section><section><h2>能量订单</h2><div id="orders"></div></section><section><h2>待处理提现</h2><button onclick="loadWithdrawals()">刷新提现</button><div id="withdrawals"></div></section><section><h2>链上充值异常审计（只读）</h2><p class="small">检查已索引的充值交易是否缺少充值单、金额不一致或充值单缺少交易记录；不会自动入账。</p><button onclick="loadChainAudit()">运行链上对账</button><pre id="chainAuditOutput"></pre></section><section><h2>财务账本完整性审计（V1.9）</h2><p class="small">只读检查用户余额与账本差异、已入账充值缺少账本、提现扣款/退款记录缺失及重复提现交易哈希。不会自动修复。</p><button onclick="runFinanceAuditUi()">运行财务审计</button><pre id="financeAuditOutput" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section><section><h2>财务对账</h2><p class="small">汇总来自系统数据库；请独立核对链上交易哈希。</p><input id="reconFrom" type="date"><input id="reconTo" type="date"><button onclick="loadRecon()">查询对账汇总</button><button onclick="exportLedger()">导出账本 CSV</button><pre id="reconOutput"></pre><div id="reconSnapshots"></div></section><section><h2>管理员账号管理（仅超级管理员）</h2><p class="small">创建独立管理员账号并分配最小权限；密码至少 12 位。该功能仅超级管理员可用。</p><input id="newAdminUsername" placeholder="新管理员用户名"><input id="newAdminPassword" type="password" placeholder="初始密码（至少12位）"><select id="newAdminRole"><option value="auditor">只读审计员</option><option value="finance">财务审核员</option><option value="operator">运营人员</option><option value="super_admin">超级管理员</option></select><button onclick="createAdmin()">创建管理员</button><button onclick="loadAdmins()">刷新管理员</button><p id="adminMsg"></p><div id="adminRows"></div></section><section><h2>管理员操作日志</h2><div id="auditLogs"></div></section></div>
+<script>
+(function(){
+  var main = document.querySelector('main');
+  if (!main) return;
+  var sections = Array.prototype.slice.call(main.querySelectorAll(':scope > section'));
+  if (sections.length < 2) return;
+  var bar = document.createElement('nav');
+  bar.className = 'tabbar';
+  var names = sections.map(function(sec, i){
+    var h = sec.querySelector('h2');
+    return h ? h.textContent.trim() : ('TAB ' + (i+1));
+  });
+  function show(idx){
+    sections.forEach(function(sec, i){
+      if (i === idx) sec.removeAttribute('data-tab-hidden');
+      else sec.setAttribute('data-tab-hidden', '');
+    });
+    Array.prototype.forEach.call(bar.children, function(b, i){
+      b.classList.toggle('active', i === idx);
+    });
+  }
+  names.forEach(function(name, i){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = name;
+    b.onclick = function(){ show(i); };
+    bar.appendChild(b);
+  });
+  main.insertBefore(bar, main.firstChild);
+  show(0);
+})();
+</script>
+</main>
 <script>
 let token='';
 async function api(path,opts={}){let r=await fetch('/api'+path,{...opts,headers:{'content-type':'application/json','authorization':'Bearer '+token,...(opts.headers||{})}});let d=await r.json();if(!r.ok)throw Error(d.error||'请求失败');return d}
