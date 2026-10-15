@@ -18,17 +18,17 @@ async function main() {
   const bot = createBot();
   if (bot) {
     await bot.api.setMyCommands([
-      { command: 'start', description: '打开主菜单' },
-      { command: 'balance', description: '查看可用余额' },
-      { command: 'wallets', description: '管理监控地址' },
-      { command: 'addwallet', description: '添加只读监控地址' },
-      { command: 'deposit', description: '获取专属充值地址' },
-      { command: 'withdraw', description: '提交提现申请' },
-      { command: 'transactions', description: '查看最近交易' },
-      { command: 'status', description: '查看监听状态' },
-      { command: 'report', description: '查看今日简报' },
-      { command: 'referral', description: '邀请好友' },
-      { command: 'help', description: '查看使用帮助' }
+      { command: 'start',        description: '🏠 主菜单' },
+      { command: 'balance',      description: '💰 我的余额' },
+      { command: 'wallets',      description: '🎧 监听管理' },
+      { command: 'addwallet',    description: '➕ 添加监听地址' },
+      { command: 'deposit',      description: '📥 获取充值地址' },
+      { command: 'withdraw',     description: '📤 提交提现申请' },
+      { command: 'transactions', description: '🧾 最近交易' },
+      { command: 'status',       description: '📡 监听状态' },
+      { command: 'report',       description: '📊 今日简报' },
+      { command: 'referral',     description: '🎁 邀请好友' },
+      { command: 'help',         description: '❔ 使用帮助' }
     ]);
     await bot.start();
     console.log('[bot] Telegram bot started');
