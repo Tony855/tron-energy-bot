@@ -49,7 +49,7 @@ const homeMenu = () => new InlineKeyboard()
   .webApp('▣ 打开监听控制台', 'https://tron.v2net.cc/miniapp/');
 
 const walletMenu = () => new InlineKeyboard()
-  .text('➕ 添加监控地址', 'wallet:add').row()
+  .text('➕ 添加监听地址', 'wallet:add').row()
   .text('🔎 查询资源', 'wallet:resources').text('📜 历史记录', 'wallet:history').row()
   .text('🗑 停用地址', 'wallet:remove').text('♻️ 已停用地址', 'wallet:disabled').row()
   .text('🏠 返回主菜单', 'home');
@@ -135,11 +135,11 @@ function createBot() {
     const ws = await listWallets(uid);
     const body = ws.length
       ? ws.map(w => {
-          const tag = w.wallet_type === 'deposit' ? '📥 充值地址' : '👁 监控地址';
+          const tag = w.wallet_type === 'deposit' ? '📥 充值地址' : '👁 监听地址';
           const label = w.label ? ` · ${esc(w.label)}` : '';
           return `${tag}${label}\n<code>${w.address}</code>\n最近事件：${w.last_scanned_at || '等待事件源推送'}`;
         }).join('\n\n')
-      : '暂无启用的地址，请先添加监控地址。';
+      : '暂无启用的地址，请先添加监听地址。';
     await render(
       ctx,
       `🎧 <b>监听管理</b>\n\n${body}\n\n` +
@@ -153,7 +153,7 @@ function createBot() {
     if (!uid) return ctx.reply('请先发送 /start');
     const ws = await listWallets(uid, { monitorOnly: true });
     if (!ws.length) {
-      return render(ctx, '你还没有启用的监控地址，请先添加。', walletMenu());
+      return render(ctx, '你还没有启用的监听地址，请先添加。', walletMenu());
     }
     const kb = new InlineKeyboard();
     for (const w of ws) kb.text(`👁 ${shortAddr(w.address)}`, `${actionPrefix}:${w.id}`).row();
@@ -281,7 +281,7 @@ function createBot() {
     await render(
       ctx,
       `📊 <b>今日简报（UTC）</b>\n\n` +
-      `监控地址：${w.c}\n识别交易事件：${t.c}\n` +
+      `监听地址：${w.c}\n识别交易事件：${t.c}\n` +
       `TRX 转账合计：${t.trx_total} TRX\nUSDT 转账合计：${t.usdt_total} USDT\n\n` +
       `注：收/转方向均计入统计。`,
       backHome()
@@ -383,8 +383,8 @@ function createBot() {
       [uid, address]
     );
     await ctx.reply(result.affectedRows
-      ? '监控地址已停用；历史交易记录保留。'
-      : '没有找到属于你的启用中监控地址。');
+      ? '监听地址已停用；历史交易记录保留。'
+      : '没有找到属于你的启用中监听地址。');
   });
 
   bot.command('addwallet', async ctx => {
@@ -393,7 +393,7 @@ function createBot() {
       pendingInput.set(ctx.from.id, 'addwallet');
       return render(
         ctx,
-        '➕ <b>添加只读监控地址</b>\n\n请直接发送 TRON 主网公开地址（T 开头），不要发送私钥。\n发送 /cancel 或点击按钮可取消。',
+        '➕ <b>添加只读监听地址</b>\n\n请直接发送 TRON 主网公开地址（T 开头），不要发送私钥。\n发送 /cancel 或点击按钮可取消。',
         cancelMenu()
       );
     }
@@ -521,7 +521,7 @@ function createBot() {
     await ctx.answerCallbackQuery();
     await render(
       ctx,
-      '➕ <b>添加监控地址</b>\n\n请发送 TRON 主网公开地址（T 开头）。\n本功能只读监控，不会要求私钥。',
+      '➕ <b>添加监听地址</b>\n\n请发送 TRON 主网公开地址（T 开头）。\n本功能只读监控，不会要求私钥。',
       cancelMenu()
     );
   });
@@ -553,7 +553,7 @@ function createBot() {
       "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=1 ORDER BY id DESC LIMIT 10",
       [uid]
     );
-    if (!ws.length) return render(ctx, '没有可停用的监控地址。', walletMenu());
+    if (!ws.length) return render(ctx, '没有可停用的监听地址。', walletMenu());
     const kb = new InlineKeyboard();
     for (const w of ws) kb.text(`🗑 ${shortAddr(w.address)}`, `wallet:rm:${w.id}`).row();
     kb.text('↩️ 返回监听管理', 'wallets').row().text('🏠 主菜单', 'home');
@@ -571,7 +571,7 @@ function createBot() {
     if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu());
     await render(
       ctx,
-      `请确认是否停用这个监控地址：\n<code>${rows[0].address}</code>\n\n停用后不再接收新通知，历史交易保留。`,
+      `请确认是否停用这个监听地址：\n<code>${rows[0].address}</code>\n\n停用后不再接收新通知，历史交易保留。`,
       new InlineKeyboard()
         .text('⚠️ 确认停用', `wallet:rm:yes:${rows[0].id}`).row()
         .text('✖️ 取消', 'wallets').row()
@@ -602,14 +602,14 @@ function createBot() {
       "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=0 ORDER BY id DESC LIMIT 20",
       [uid]
     );
-    if (!ws.length) return render(ctx, '目前没有已停用的监控地址。', walletMenu());
+    if (!ws.length) return render(ctx, '目前没有已停用的监听地址。', walletMenu());
     const kb = new InlineKeyboard();
     for (const w of ws) {
       kb.text(`♻️ 恢复 ${shortAddr(w.address)}`, `wallet:restore:${w.id}`).row();
       kb.text(`🗑 删除 ${shortAddr(w.address, 6, 4)}`, `wallet:delete:${w.id}`).row();
     }
     kb.text('↩️ 返回监听管理', 'wallets').row().text('🏠 主菜单', 'home');
-    await render(ctx, '♻️ <b>已停用的监控地址</b>\n\n请选择恢复或申请永久删除。', kb);
+    await render(ctx, '♻️ <b>已停用的监听地址</b>\n\n请选择恢复或申请永久删除。', kb);
   });
 
   bot.callbackQuery(/^wallet:restore:(\d+)$/, async ctx => {
@@ -622,7 +622,7 @@ function createBot() {
     );
     await render(
       ctx,
-      r.affectedRows ? '✅ 监控地址已恢复启用。' : '地址不存在、已启用或不属于你的账户。',
+      r.affectedRows ? '✅ 监听地址已恢复启用。' : '地址不存在、已启用或不属于你的账户。',
       walletMenu()
     );
   });
@@ -635,7 +635,7 @@ function createBot() {
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
       [Number(ctx.match[1]), uid]
     );
-    if (!rows.length) return render(ctx, '只能删除属于你自己的已停用监控地址。', walletMenu());
+    if (!rows.length) return render(ctx, '只能删除属于你自己的已停用监听地址。', walletMenu());
     await render(
       ctx,
       `⚠️ <b>永久删除确认</b>\n\n地址：\n<code>${rows[0].address}</code>\n\n` +
@@ -851,7 +851,7 @@ function createBot() {
           "INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')",
           [uid, text]
         );
-        await render(ctx, '✅ 已添加到你的只读监控地址。', walletMenu());
+        await render(ctx, '✅ 已添加到你的只读监听地址。', walletMenu());
       } catch (e) {
         await render(
           ctx,
