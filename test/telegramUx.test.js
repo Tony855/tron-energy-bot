@@ -30,5 +30,7 @@ test('menu callbacks do not fake invoking slash commands as bot messages', () =>
 
 test('Telegram command menu is registered at startup', () => {
   assert.match(index, /setMyCommands/);
-  assert.match(index, /description: '🏠 主菜单'/);
+  assert.match(index, /setMyCommands/);
+  assert.match(index, /buildCommands/);
+  assert.match(index, /language_code: lang/);
 });
