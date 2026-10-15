@@ -153,7 +153,7 @@ async function saveTransfer(wallet, t, type) {
         const unit = type === 'trx' ? 'TRX' : 'USDT-TRC20';
         const shortHash = `${t.txHash.slice(0, 10)}...${t.txHash.slice(-8)}`;
         await sendTelegramMessage(users[0].telegram_id,
-          `TRON 钱包交易提醒\n类型：${incoming ? '收到转账' : '转出转账'}\n资产：${unit}\n金额：${t.amount}\n对方地址：${incoming ? t.from : t.to}\n交易：${shortHash}\n状态：已确认\n监控地址：${wallet.address}`);
+          `TRON 地址交易提醒\n类型：${incoming ? '收到转账' : '转出转账'}\n资产：${unit}\n金额：${t.amount}\n对方地址：${incoming ? t.from : t.to}\n交易：${shortHash}\n状态：已确认\n监控地址：${wallet.address}`);
       }
     }
   }

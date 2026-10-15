@@ -1,6 +1,6 @@
 {
   "name": "tron-energy-telegram-bot",
-  "version": "3.5.0",
+  "version": "3.5.1",
   "private": true,
   "description": "TRON energy Telegram bot with event-driven webhook, isolated customers, Socket.IO, hardened installer and encrypted backups",
   "main": "src/index.js",

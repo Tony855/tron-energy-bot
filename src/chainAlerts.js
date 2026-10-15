@@ -30,7 +30,7 @@ async function checkAndAlert() {
       if (!result.affectedRows) continue;
       newAlerts++;
       const r = event.row;
-      const message = `⚠️ TRON 充值审计异常\n类型：${event.kind === 'missing_recharge_order' ? '链上入账缺少充值单' : '链上金额与充值单不一致'}\n充值地址：${r.deposit_address || '(请在后台核对)'}\n交易：${r.tx_hash}\n事件序号：${r.event_index}\n链上金额：${r.amount ?? r.chain_amount ?? '未知'} USDT${r.order_amount !== undefined ? `\n充值单金额：${r.order_amount} USDT` : ''}\n钱包 ID：${r.wallet_id}\n处理建议：人工核验链上交易与充值归属；本告警不会修改余额。`;
+      const message = `⚠️ TRON 充值审计异常\n类型：${event.kind === 'missing_recharge_order' ? '链上入账缺少充值单' : '链上金额与充值单不一致'}\n充值地址：${r.deposit_address || '(请在后台核对)'}\n交易：${r.tx_hash}\n事件序号：${r.event_index}\n链上金额：${r.amount ?? r.chain_amount ?? '未知'} USDT${r.order_amount !== undefined ? `\n充值单金额：${r.order_amount} USDT` : ''}\n地址 ID：${r.wallet_id}\n处理建议：人工核验链上交易与充值归属；本告警不会修改余额。`;
       for (const chat of chats) await sendTelegramMessage(chat, message);
     }
     return { checked_missing: missing.length, checked_mismatch: mismatch.length, new_alerts: newAlerts, admin_chats_configured: chats.length };
