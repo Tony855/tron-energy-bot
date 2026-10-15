@@ -1,3 +1,10 @@
+
+function resourceValue(value) {
+  if (value === null || value === undefined || value === '') return '0';
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? String(n) : '暂无数据';
+}
+
 const { Bot, InlineKeyboard } = require('grammy');
 const crypto = require('crypto');
 const { query } = require('./db');
@@ -110,7 +117,12 @@ function createBot() {
     if (!validateAddress(address)) return ctx.reply('用法：/resources T开头的TRON地址');
     try {
       const r = await getAccount(address);
-      await ctx.reply(`TRON 账户资源\n地址：${r.address}\nTRX 余额：${r.trx}\nEnergy：${r.energyUsed}/${r.energyLimit}\nBandwidth：${r.netUsed}/${r.netLimit}`);
+      await ctx.reply(
+        `TRON 账户资源\n地址：${r.address}\nTRX 余额：${r.trx}\n` +
+        `Energy：${resourceValue(r.energyUsed)}/${resourceValue(r.energyLimit)}\n` +
+        `Bandwidth：${resourceValue(r.netUsed)}/${resourceValue(r.netLimit)}\n` +
+        `免费 Bandwidth：${resourceValue(r.freeNetUsed)}/${resourceValue(r.freeNetLimit)}`
+      );
     } catch (e) {
       await ctx.reply(`查询失败：${e.message}\n请检查 TRON API 地址、API Key 或网络连接。`);
     }
@@ -497,10 +509,11 @@ function createBot() {
         '🔴 TRX：<b>' + r.trx + ' TRX</b>\n' +
         '🟢 USDT (TRC20)：<b>' + usdtBalance + ' USDT</b>\n\n' +
         '📊 <b>账户资源</b>\n' +
-        '⚡ Energy：' + r.energyUsed + ' / ' + r.energyLimit + '（' + energyLabel + '）\n' +
+        '⚡ Energy：' + resourceValue(r.energyUsed) + ' / ' + resourceValue(r.energyLimit) + '（' + energyLabel + '）\n' +
         energyBar + '\n' +
-        '📶 Bandwidth：' + r.netUsed + ' / ' + r.netLimit + '（' + netLabel + '）\n' +
-        netBar + '\n\n' +
+        '📶 Bandwidth：' + resourceValue(r.netUsed) + ' / ' + resourceValue(r.netLimit) + '（' + netLabel + '）\n' +
+        netBar + '\n' +
+        '🆓 免费 Bandwidth：' + resourceValue(r.freeNetUsed) + ' / ' + resourceValue(r.freeNetLimit) + '\n\n' +
         'ℹ️ 收款、付款记录仅包含本系统已记录的链上交易。事件源尚未推送的历史交易不会自动显示。',
         { parse_mode: 'HTML', reply_markup: kb }
       );
@@ -615,7 +628,17 @@ function createBot() {
       catch (e) { await ctx.reply(e.code === 'ER_DUP_ENTRY' ? '该地址已在你的列表中。' : '添加失败，请稍后重试。', { reply_markup: walletKeyboard() }); }
     } else if (action === 'resources') {
       if (!validateAddress(text)) return ctx.reply('地址格式不正确，请使用 T 开头的 TRON 地址。', { reply_markup: walletKeyboard() });
-      try { const r = await getAccount(text); await ctx.reply(`🔎 <b>账户资源</b>\n地址：<code>${r.address}</code>\nTRX：${r.trx}\nEnergy：${r.energyUsed}/${r.energyLimit}\nBandwidth：${r.netUsed}/${r.netLimit}`, { parse_mode: 'HTML', reply_markup: walletKeyboard() }); }
+      try {
+        const r = await getAccount(text);
+        await ctx.reply(
+          `🔎 <b>账户资源</b>\n地址：<code>${r.address}</code>\n` +
+          `TRX：${r.trx}\n` +
+          `Energy：${resourceValue(r.energyUsed)}/${resourceValue(r.energyLimit)}\n` +
+          `Bandwidth：${resourceValue(r.netUsed)}/${resourceValue(r.netLimit)}\n` +
+          `免费 Bandwidth：${resourceValue(r.freeNetUsed)}/${resourceValue(r.freeNetLimit)}`,
+          { parse_mode: 'HTML', reply_markup: walletKeyboard() }
+        );
+      }
       catch (e) { await ctx.reply('暂时无法查询资源，请稍后重试并检查 TRON API 配置。', { reply_markup: walletKeyboard() }); }
     } else if (action === 'withdraw') {
       const parts = text.split(/\s+/); if (parts.length !== 2) return ctx.reply('格式不正确，请重新点击“提现申请”并发送：金额 收款TRON地址', { reply_markup: menu });
