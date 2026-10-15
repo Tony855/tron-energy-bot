@@ -156,6 +156,7 @@ function createBot() {
   };
 
   const pickMonitorWallet = async (ctx, title, actionPrefix) => {
+    const lang = await langOf(ctx, query);
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return ctx.reply('请先发送 /start');
     const ws = await listWallets(uid, { monitorOnly: true });
@@ -1032,7 +1033,7 @@ function createBot() {
     await ctx.reply(result.affectedRows ? `充值 #${id} 已拒绝。` : '订单不存在或已处理。');
   });
 
-  bot.catch(err => console.error('[bot] error:', err.message));
+  bot.catch(err => console.error('[bot] error:', err.stack || err.message));
   return bot;
 }
 
