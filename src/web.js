@@ -93,8 +93,7 @@ app.get('/api/version', (req, res) => {
 
 app.get('/api/events/status', auth, (req, res) => res.json(require('./eventBridge').getStatus()));
 
-app.get('/api/health', (req, res) => res.redirect(307, '/health'));
-app.get('/health', async (req, res) => {
+app.get(['/health', '/api/health'], async (req, res) => {
   let database = 'ok';
   try { await pool.query('SELECT 1'); } catch { database = 'error'; }
   const provider = getEnergyProvider();
