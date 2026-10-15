@@ -14,6 +14,41 @@ module.exports = {
   'cmd.help':         '❔ 使用帮助',
   'cmd.language':     '🌐 语言设置',
 
+  // 主菜单
+  'menu.wallets':      '🎧 监听管理',
+  'menu.balance':      '💰 余额查询',
+  'menu.deposit':      '📥 充值地址',
+  'menu.withdraw':     '📤 提现申请',
+  'menu.transactions': '🧾 交易记录',
+  'menu.status':       '📡 监听状态',
+  'menu.report':       '📊 今日简报',
+  'menu.energy':       '⚡ 能量服务',
+  'menu.referral':     '🎁 邀请好友',
+  'menu.help':         '❔ 使用帮助',
+  'menu.miniapp':      '▣ 打开监听控制台',
+
+  // 通用返回
+  'menu.home':         '🏠 返回主菜单',
+  'menu.home_short':   '🏠 主菜单',
+  'menu.cancel':       '✖️ 取消操作',
+
+  // 监听管理子菜单
+  'wallet.title':      '🎧 <b>监听管理</b>',
+  'wallet.hint':       '监控为只读功能，不会要求私钥。',
+  'wallet.empty':      '暂无启用的地址，请先添加监控地址。',
+  'wallet.add':        '➕ 添加监听地址',
+  'wallet.balance':    '🔎 查询余额',
+  'wallet.history':    '📜 历史记录',
+  'wallet.disable':    '🗑 停用地址',
+  'wallet.disabled':   '♻️ 已停用地址',
+  'wallet.back':       '↩️ 返回监听管理',
+
+  // 首页
+  'home.greeting':     '👋 欢迎回来，{name}！',
+  'home.balance':      '💰 可用余额：<b>{balance} USDT</b>',
+  'home.prompt':       '请选择下面的服务。',
+  'home.security':     '🔐 请勿发送助记词、私钥或验证码。',
+
   // 语言选择
   'lang.title':       '🌐 <b>语言设置</b>\n\n请选择界面语言：',
   'lang.changed':     '✅ 已切换为中文',

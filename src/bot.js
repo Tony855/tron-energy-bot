@@ -38,26 +38,32 @@ function fmtUtc(ms) {
 }
 
 // ---------- 唯一键盘定义（每层一个） ----------
-const backHome   = () => new InlineKeyboard().text('🏠 返回主菜单', 'home');
-const cancelMenu = () => new InlineKeyboard().text('✖️ 取消操作', 'cancel').text('🏠 主菜单', 'home');
+const backHome   = (lang = 'zh-CN') => new InlineKeyboard().text(t(lang, 'menu.home'), 'home');
+const cancelMenu = (lang = 'zh-CN') => new InlineKeyboard().text(t(lang, 'menu.cancel'), 'cancel').text(t(lang, 'menu.home_short'), 'home');
 
-const homeMenu = () => new InlineKeyboard()
-  .text('🎧 监听管理', 'wallets').text('💰 余额查询', 'balance').row()
-  .text('📥 充值地址', 'deposit').text('📤 提现申请', 'withdraw').row()
-  .text('🧾 交易记录', 'transactions').text('📡 监听状态', 'status').row()
-  .text('📊 今日简报', 'report').text('⚡ 能量服务', 'energy').row()
-  .text('🎁 邀请好友', 'referral').text('❔ 使用帮助', 'help').row()
-  .webApp('▣ 打开监听控制台', 'https://tron.v2net.cc/miniapp/');
+const homeMenu = (lang = 'zh-CN') => new InlineKeyboard()
+  .text(t(lang, 'menu.wallets'), 'wallets').text(t(lang, 'menu.balance'), 'balance').row()
+  .text(t(lang, 'menu.deposit'), 'deposit').text(t(lang, 'menu.withdraw'), 'withdraw').row()
+  .text(t(lang, 'menu.transactions'), 'transactions').text(t(lang, 'menu.status'), 'status').row()
+  .text(t(lang, 'menu.report'), 'report').text(t(lang, 'menu.energy'), 'energy').row()
+  .text(t(lang, 'menu.referral'), 'referral').text(t(lang, 'menu.help'), 'help').row()
+  .webApp(t(lang, 'menu.miniapp'), 'https://tron.v2net.cc/miniapp/');
 
-const walletMenu = () => new InlineKeyboard()
-  .text('➕ 添加监听地址', 'wallet:add').row()
-  .text('🔎 查询余额', 'wallet:resources').text('📜 历史记录', 'wallet:history').row()
-  .text('🗑 停用地址', 'wallet:remove').text('♻️ 已停用地址', 'wallet:disabled').row()
-  .text('🏠 返回主菜单', 'home');
+const walletMenu = (lang = 'zh-CN') => new InlineKeyboard()
+  .text(t(lang, 'wallet.add'), 'wallet:add').row()
+  .text(t(lang, 'wallet.balance'), 'wallet:resources').text(t(lang, 'wallet.history'), 'wallet:history').row()
+  .text(t(lang, 'wallet.disable'), 'wallet:remove').text(t(lang, 'wallet.disabled'), 'wallet:disabled').row()
+  .text(t(lang, 'menu.home'), 'home');
 
 // ---------- 统一渲染：优先编辑当前消息，避免刷屏 ----------
 async function render(ctx, text, keyboard) {
-  const opts = { parse_mode: 'HTML', reply_markup: keyboard, disable_web_page_preview: true };
+  // keyboard 可以是 InlineKeyboard 实例，或 (lang) => InlineKeyboard 函数
+  let kb = keyboard;
+  if (typeof keyboard === 'function') {
+    const lang = await langOf(ctx, query);
+    kb = keyboard(lang);
+  }
+  const opts = { parse_mode: 'HTML', reply_markup: kb, disable_web_page_preview: true };
   if (ctx.callbackQuery?.message) {
     try { await ctx.editMessageText(text, opts); return; }
     catch (e) {
@@ -128,7 +134,7 @@ function createBot() {
       `💰 可用余额：<b>${u.balance} USDT</b>\n\n` +
       `请选择下面的服务。\n\n` +
       `🔐 请勿发送助记词、私钥或验证码。`,
-      homeMenu()
+      homeMenu
     );
   };
 
@@ -145,7 +151,7 @@ function createBot() {
       ctx,
       `🎧 <b>监听管理</b>\n\n${body}\n\n` +
       `监控为只读功能，不会要求私钥。`,
-      walletMenu()
+      walletMenu
     );
   };
 
@@ -154,7 +160,7 @@ function createBot() {
     if (!uid) return ctx.reply('请先发送 /start');
     const ws = await listWallets(uid, { monitorOnly: true });
     if (!ws.length) {
-      return render(ctx, '你还没有启用的监听地址，请先添加。', walletMenu());
+      return render(ctx, '你还没有启用的监听地址，请先添加。', walletMenu);
     }
     const kb = new InlineKeyboard();
     for (const w of ws) kb.text(`👁 ${shortAddr(w.address)}`, `${actionPrefix}:${w.id}`).row();
@@ -183,10 +189,10 @@ function createBot() {
     if (!uid) return ctx.reply('请先发送 /start');
     const r = await ensureDepositAddress(uid);
     if (r.reason === 'pool_empty') {
-      return render(ctx, '当前没有可分配的充值地址，请稍后再试或联系管理员。请勿向其他地址转账。', backHome());
+      return render(ctx, '当前没有可分配的充值地址，请稍后再试或联系管理员。请勿向其他地址转账。', backHome);
     }
     if (r.reason === 'error') {
-      return render(ctx, '暂时无法分配充值地址，请联系管理员。请勿向其他地址转账。', backHome());
+      return render(ctx, '暂时无法分配充值地址，请联系管理员。请勿向其他地址转账。', backHome);
     }
     await render(
       ctx,
@@ -208,7 +214,7 @@ function createBot() {
       '请按以下格式发送：金额 空格 收款TRON地址\n' +
       '例如：<code>10 Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code>\n\n' +
       '提交后进入管理员审核，不会立即链上转账。',
-      cancelMenu()
+      cancelMenu
     );
   };
 
@@ -261,7 +267,7 @@ function createBot() {
       `最近事件：${w.last_scan || '暂无记录'}\n` +
       `近 24 小时交易：${tx.count}\n\n` +
       `实时发现依赖管理员配置的第三方 TRON 事件推送服务。`,
-      backHome()
+      backHome
     );
   };
 
@@ -285,7 +291,7 @@ function createBot() {
       `监听地址：${w.c}\n识别交易事件：${t.c}\n` +
       `TRX 转账合计：${t.trx_total} TRX\nUSDT 转账合计：${t.usdt_total} USDT\n\n` +
       `注：收/转方向均计入统计。`,
-      backHome()
+      backHome
     );
   };
 
@@ -300,7 +306,7 @@ function createBot() {
       `已邀请：${stats.c} 人\n` +
       `返佣比例：${process.env.REFERRAL_COMMISSION_PERCENT || 3}%（以系统规则为准）\n\n` +
       `你的专属链接：\n<code>https://t.me/${botName}?start=${rows[0].referral_code}</code>`,
-      backHome()
+      backHome
     );
   };
 
@@ -310,7 +316,7 @@ function createBot() {
       '⚡ <b>能量服务</b>\n\n' +
       '真实能量供应商尚未接入，因此目前不能报价、扣款或声称委托成功。\n' +
       '供应商接入后此处将提供能量报价、时长选择、确认订单和订单状态。',
-      backHome()
+      backHome
     );
   };
 
@@ -324,7 +330,7 @@ function createBot() {
       '🧾 交易记录：查看已识别的链上事件\n' +
       '📡 监听状态：查看最近事件接收情况\n\n' +
       '🔐 永远不要向机器人发送助记词、私钥或验证码。',
-      backHome()
+      backHome
     );
   };
 
@@ -349,7 +355,7 @@ function createBot() {
       try { await query('UPDATE users SET language=? WHERE id=?', [target, uid]); }
       catch (e) { console.error('[lang] update failed:', e.message); }
     }
-    await render(ctx, t(target, 'lang.changed'), backHome());
+    await render(ctx, t(target, 'lang.changed'), backHome);
   });
 
   bot.command('start', showHome);
@@ -419,12 +425,12 @@ function createBot() {
       return render(
         ctx,
         '➕ <b>添加只读监听地址</b>\n\n请直接发送 TRON 主网公开地址（T 开头），不要发送私钥。\n发送 /cancel 或点击按钮可取消。',
-        cancelMenu()
+        cancelMenu
       );
     }
     if (!validateAddress(address)) {
       pendingInput.set(ctx.from.id, 'addwallet');
-      return render(ctx, '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址。', cancelMenu());
+      return render(ctx, '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址。', cancelMenu);
     }
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return ctx.reply('请先发送 /start');
@@ -437,13 +443,13 @@ function createBot() {
       return render(
         ctx,
         '✅ 地址已添加到你的独立只读监控列表。\n\n地址、交易与通知仅关联你的账户。',
-        walletMenu()
+        walletMenu
       );
     } catch (e) {
       pendingInput.delete(ctx.from.id);
-      if (e.code === 'ER_DUP_ENTRY') return render(ctx, '该地址已存在，请勿重复添加。', walletMenu());
+      if (e.code === 'ER_DUP_ENTRY') return render(ctx, '该地址已存在，请勿重复添加。', walletMenu);
       console.error('[addwallet]', e.message);
-      return render(ctx, '添加失败，请稍后重试。', walletMenu());
+      return render(ctx, '添加失败，请稍后重试。', walletMenu);
     }
   });
 
@@ -517,7 +523,7 @@ function createBot() {
   bot.callbackQuery('balance',      async ctx => {
     await ctx.answerCallbackQuery();
     const rows = await query('SELECT balance FROM users WHERE telegram_id=?', [ctx.from.id]);
-    if (!rows.length) return render(ctx, '请先发送 /start', backHome());
+    if (!rows.length) return render(ctx, '请先发送 /start', backHome);
     await render(
       ctx,
       `💰 <b>我的余额</b>\n\n可用余额：<b>${rows[0].balance} USDT</b>\n\n提现需提交申请并通过管理员审核。`,
@@ -530,7 +536,7 @@ function createBot() {
   bot.callbackQuery(['wallets', 'wallet:list'],      async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     await showWalletHome(ctx, uid);
   });
   bot.callbackQuery('deposit',      async ctx => { await ctx.answerCallbackQuery(); await showDeposit(ctx); });
@@ -547,7 +553,7 @@ function createBot() {
     await render(
       ctx,
       '➕ <b>添加监听地址</b>\n\n请发送 TRON 主网公开地址（T 开头）。\n本功能只读监控，不会要求私钥。',
-      cancelMenu()
+      cancelMenu
     );
   });
 
@@ -573,12 +579,12 @@ function createBot() {
   bot.callbackQuery('wallet:remove', async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const ws = await query(
       "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=1 ORDER BY id DESC LIMIT 10",
       [uid]
     );
-    if (!ws.length) return render(ctx, '没有可停用的监听地址。', walletMenu());
+    if (!ws.length) return render(ctx, '没有可停用的监听地址。', walletMenu);
     const kb = new InlineKeyboard();
     for (const w of ws) kb.text(`🗑 ${shortAddr(w.address)}`, `wallet:rm:${w.id}`).row();
     kb.text('↩️ 返回监听管理', 'wallets').row().text('🏠 主菜单', 'home');
@@ -588,12 +594,12 @@ function createBot() {
   bot.callbackQuery(/^wallet:rm:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [Number(ctx.match[1]), uid]
     );
-    if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu());
+    if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu);
     await render(
       ctx,
       `请确认是否停用这个监听地址：\n<code>${rows[0].address}</code>\n\n停用后不再接收新通知，历史交易保留。`,
@@ -607,7 +613,7 @@ function createBot() {
   bot.callbackQuery(/^wallet:rm:yes:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const [r] = await pool.execute(
       "UPDATE wallets SET is_active=0 WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1",
       [Number(ctx.match[1]), uid]
@@ -615,19 +621,19 @@ function createBot() {
     await render(
       ctx,
       r.affectedRows ? '✅ 地址已停用，历史交易仍保留。' : '地址不存在、已停用或不属于你的账户。',
-      walletMenu()
+      walletMenu
     );
   });
 
   bot.callbackQuery('wallet:disabled', async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const ws = await query(
       "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=0 ORDER BY id DESC LIMIT 20",
       [uid]
     );
-    if (!ws.length) return render(ctx, '目前没有已停用的监听地址。', walletMenu());
+    if (!ws.length) return render(ctx, '目前没有已停用的监听地址。', walletMenu);
     const kb = new InlineKeyboard();
     for (const w of ws) {
       kb.text(`♻️ 恢复 ${shortAddr(w.address)}`, `wallet:restore:${w.id}`).row();
@@ -640,7 +646,7 @@ function createBot() {
   bot.callbackQuery(/^wallet:restore:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const [r] = await pool.execute(
       "UPDATE wallets SET is_active=1 WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
       [Number(ctx.match[1]), uid]
@@ -648,19 +654,19 @@ function createBot() {
     await render(
       ctx,
       r.affectedRows ? '✅ 监听地址已恢复启用。' : '地址不存在、已启用或不属于你的账户。',
-      walletMenu()
+      walletMenu
     );
   });
 
   bot.callbackQuery(/^wallet:delete:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
       [Number(ctx.match[1]), uid]
     );
-    if (!rows.length) return render(ctx, '只能删除属于你自己的已停用监听地址。', walletMenu());
+    if (!rows.length) return render(ctx, '只能删除属于你自己的已停用监听地址。', walletMenu);
     await render(
       ctx,
       `⚠️ <b>永久删除确认</b>\n\n地址：\n<code>${rows[0].address}</code>\n\n` +
@@ -675,7 +681,7 @@ function createBot() {
   bot.callbackQuery(/^wallet:delete:confirm:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const id = Number(ctx.match[1]);
     let conn;
     try {
@@ -687,7 +693,7 @@ function createBot() {
       );
       if (!wallets.length || Number(wallets[0].is_active) !== 0) {
         await conn.rollback();
-        return render(ctx, '地址不存在、未停用或不属于你的账户，已取消删除。', walletMenu());
+        return render(ctx, '地址不存在、未停用或不属于你的账户，已取消删除。', walletMenu);
       }
       const [tableRows] = await conn.execute(
         "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()"
@@ -708,7 +714,7 @@ function createBot() {
           return render(
             ctx,
             `⛔ 为保护历史数据，不能永久删除此地址：存在 ${name} 关联记录。你仍可以保留或重新启用该地址。`,
-            walletMenu()
+            walletMenu
           );
         }
       }
@@ -718,17 +724,17 @@ function createBot() {
       );
       if (r.affectedRows !== 1) {
         await conn.rollback();
-        return render(ctx, '地址状态已变化，未执行删除。', walletMenu());
+        return render(ctx, '地址状态已变化，未执行删除。', walletMenu);
       }
       await conn.commit();
-      await render(ctx, '✅ 地址已永久删除。未删除任何交易记录。', walletMenu());
+      await render(ctx, '✅ 地址已永久删除。未删除任何交易记录。', walletMenu);
     } catch (e) {
       if (conn) { try { await conn.rollback(); } catch (_) {} }
       console.error('[wallet:delete]', e.message);
       await render(
         ctx,
         '删除操作未完成。为保护数据，检查失败时系统会拒绝删除，请保留该地址并检查日志。',
-        walletMenu()
+        walletMenu
       );
     } finally {
       if (conn) conn.release();
@@ -738,12 +744,12 @@ function createBot() {
   bot.callbackQuery(/^wallet:resource:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [Number(ctx.match[1]), uid]
     );
-    if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu());
+    if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu);
     const w = rows[0];
     try {
       const [r, usdtBalance] = await Promise.all([
@@ -790,19 +796,19 @@ function createBot() {
       );
     } catch (e) {
       console.error('[wallet:resource]', e.message);
-      await render(ctx, '查询失败，请检查 TRON API 配置或网络连接。', walletMenu());
+      await render(ctx, '查询失败，请检查 TRON API 配置或网络连接。', walletMenu);
     }
   });
 
   bot.callbackQuery(/^wallet:history:choose:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [Number(ctx.match[1]), uid]
     );
-    if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu());
+    if (!rows.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu);
     const w = rows[0];
     await render(
       ctx,
@@ -818,14 +824,14 @@ function createBot() {
   bot.callbackQuery(/^wallet:history:(in|out):(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, '请先发送 /start', backHome());
+    if (!uid) return render(ctx, '请先发送 /start', backHome);
     const direction = ctx.match[1];
     const walletId = Number(ctx.match[2]);
     const wallets = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [walletId, uid]
     );
-    if (!wallets.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu());
+    if (!wallets.length) return render(ctx, '地址不存在、已停用或不属于你的账户。', walletMenu);
     const address = wallets[0].address;
     const operator = direction === 'in' ? 'to_address' : 'from_address';
     const rows = await query(
@@ -866,22 +872,22 @@ function createBot() {
 
     if (action === 'addwallet') {
       if (!validateAddress(text)) {
-        return render(ctx, '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址。', cancelMenu());
+        return render(ctx, '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址。', cancelMenu);
       }
       pendingInput.delete(ctx.from.id);
       const uid = await userIdFor(ctx.from.id);
-      if (!uid) return render(ctx, '请先发送 /start', backHome());
+      if (!uid) return render(ctx, '请先发送 /start', backHome);
       try {
         await query(
           "INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')",
           [uid, text]
         );
-        await render(ctx, '✅ 已添加到你的只读监听地址。', walletMenu());
+        await render(ctx, '✅ 已添加到你的只读监听地址。', walletMenu);
       } catch (e) {
         await render(
           ctx,
           e.code === 'ER_DUP_ENTRY' ? '该地址已存在，请勿重复添加。' : '添加失败，请稍后重试。',
-          walletMenu()
+          walletMenu
         );
       }
       return;
@@ -891,18 +897,18 @@ function createBot() {
       pendingInput.delete(ctx.from.id);
       const parts = text.split(/\s+/);
       if (parts.length !== 2) {
-        return render(ctx, '格式不正确。请重新点击“提现申请”，发送：金额 空格 收款TRON地址', homeMenu());
+        return render(ctx, '格式不正确。请重新点击“提现申请”，发送：金额 空格 收款TRON地址', homeMenu);
       }
       const [amount, destination] = parts;
-      if (!validateAddress(destination)) return render(ctx, '收款地址无效，请重新发起提现申请。', homeMenu());
-      try { validateWithdrawalAmount(amount); } catch (e) { return render(ctx, e.message, homeMenu()); }
+      if (!validateAddress(destination)) return render(ctx, '收款地址无效，请重新发起提现申请。', homeMenu);
+      try { validateWithdrawalAmount(amount); } catch (e) { return render(ctx, e.message, homeMenu); }
 
       const conn = await pool.getConnection();
       let insertId;
       try {
         await conn.beginTransaction();
         const [users] = await conn.execute('SELECT id,balance FROM users WHERE telegram_id=? FOR UPDATE', [ctx.from.id]);
-        if (!users.length) { await conn.rollback(); return render(ctx, '请先发送 /start', homeMenu()); }
+        if (!users.length) { await conn.rollback(); return render(ctx, '请先发送 /start', homeMenu); }
         const uid = users[0].id;
         const [pending] = await conn.execute(
           "SELECT COUNT(*) count FROM withdrawal_requests WHERE user_id=? AND status IN ('pending','approved')",
@@ -925,13 +931,13 @@ function createBot() {
         await conn.commit();
       } catch (e) {
         await conn.rollback();
-        return render(ctx, e.message || '提现申请失败，请稍后重试。', homeMenu());
+        return render(ctx, e.message || '提现申请失败，请稍后重试。', homeMenu);
       } finally { conn.release(); }
 
       return render(
         ctx,
         `✅ <b>提现申请已提交</b>\n\n编号：#${insertId}\n金额：${amount} USDT\n收款地址：${destination}\n状态：待管理员审核。`,
-        backHome()
+        backHome
       );
     }
   });

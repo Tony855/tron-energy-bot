@@ -11,9 +11,9 @@ test('Telegram home menu exposes key customer actions as inline buttons', () => 
   for (const key of ['wallets', 'energy', 'balance', 'deposit', 'withdraw', 'transactions', 'status', 'report', 'referral', 'help']) {
     assert.ok(bot.includes(`'${key}'`), `missing callback ${key}`);
   }
-  assert.match(bot, /const walletMenu\s*=\s*\(\)/);
-  assert.match(bot, /const cancelMenu\s*=\s*\(\)/);
-  assert.match(bot, /const homeMenu\s*=\s*\(\)/);
+  assert.match(bot, /const walletMenu\s*=\s*\(/);
+  assert.match(bot, /const cancelMenu\s*=\s*\(/);
+  assert.match(bot, /const homeMenu\s*=\s*\(/);
 });
 
 test('guided address and withdrawal inputs are scoped to Telegram user', () => {
