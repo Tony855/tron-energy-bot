@@ -4,6 +4,54 @@
 set -Eeuo pipefail
 umask 077
 
+# ------------------ 参数解析 ------------------
+DRY_RUN=0
+UNATTENDED=0
+
+print_help() {
+  cat <<'HELP'
+TRON Energy Bot 一键安装脚本
+
+用法: sudo bash install.sh [选项]
+
+选项:
+  -h, --help          显示帮助
+  -V, --version       显示版本
+  -y, --yes           非交互模式
+  -n, --dry-run       演练模式（不修改系统）
+  --app-dir=PATH      应用目录（默认 /opt/tron-energy-bot）
+  --env-file=PATH     环境文件（默认 /etc/tron-energy-bot.env）
+
+非交互模式可用环境变量:
+  BOT_TOKEN, ADMIN_USERNAME, ADMIN_TELEGRAM_IDS, DOMAIN,
+  TRONGRID_API_KEY, USDT_CONTRACT, MIN_DEPOSIT,
+  REFERRAL_PERCENT, EVENT_SECRET
+HELP
+}
+
+for _arg in "$@"; do
+  case "$_arg" in
+    -h|--help)    print_help; exit 0 ;;
+    -V|--version) printf 'tron-energy-bot installer %s\n' "$(cat VERSION 2>/dev/null || echo unknown)"; exit 0 ;;
+    -y|--yes)     UNATTENDED=1 ;;
+    -n|--dry-run) DRY_RUN=1 ;;
+    --app-dir=*)  APP_DIR="${_arg#--app-dir=}" ;;
+    --env-file=*) ENV_FILE="${_arg#--env-file=}" ;;
+    *) printf '未知参数: %s（--help 查看用法）\n' "$_arg" >&2; exit 2 ;;
+  esac
+done
+
+# ------------------ 安装日志 ------------------
+INSTALL_LOG="${INSTALL_LOG:-/var/log/tron-energy-install-$(date +%Y%m%d-%H%M%S).log}"
+if [[ -w /var/log ]]; then
+  exec > >(tee -a "$INSTALL_LOG") 2>&1
+fi
+
+# ------------------ 命令预检 ------------------
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || { printf '[ERROR] 缺少命令: %s（apt-get install -y %s）\n' "$1" "${2:-$1}" >&2; exit 1; }
+}
+
 APP_NAME="tron-energy"
 APP_DIR="${APP_DIR:-/opt/tron-energy-bot}"
 ENV_FILE="${ENV_FILE:-/etc/tron-energy-bot.env}"
@@ -16,9 +64,19 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info(){ printf "${GREEN}[INFO]${NC} %s\n" "$*"; }
 warn(){ printf "${YELLOW}[WARN]${NC} %s\n" "$*" >&2; }
 die(){ printf "${RED}[ERROR]${NC} %s\n" "$*" >&2; exit 1; }
-trap 'rc=$?; printf "[ERROR] 安装失败（退出码 %s，第 %s 行）。请查看上方日志；配置文件不会自动覆盖。\n" "$rc" "$LINENO" >&2; exit "$rc"' ERR
+trap 'rc=$?; printf "
+[ERROR] 安装失败（退出码 %s，第 %s 行）
+" "$rc" "$LINENO" >&2; [[ -n "${INSTALL_LOG:-}" ]] && printf "[ERROR] 完整日志: %s
+" "$INSTALL_LOG" >&2; printf "[ERROR] 如需重新安装，请手动清理：
+  systemctl stop %s 2>/dev/null || true
+  userdel -r %s 2>/dev/null || true
+  rm -rf %s %s %s
+" "$APP_NAME" "$DB_USER" "$APP_DIR" "$ENV_FILE" "$SERVICE_FILE" >&2; exit "$rc"' ERR
 
 [[ $EUID -eq 0 ]] || die "请使用 root 执行：sudo bash install.sh"
+for _cmd in curl gpg openssl python3 tar gzip rsync sed awk grep; do
+  require_cmd "$_cmd" "$_cmd"
+done
 [[ -f package.json && -f sql/schema.sql && -d src ]] || die "请在解压后的项目根目录运行 install.sh。"
 [[ -f /etc/os-release ]] || die "无法识别操作系统。"
 . /etc/os-release
@@ -45,7 +103,21 @@ fi
 
 
 # Interactive prompts can be preseeded with environment variables for unattended installs.
-ask(){ local var="$1" label="$2" default="${3:-}" value="${!1:-}"; if [[ -z "$value" ]]; then if [[ -n "$default" ]]; then read -r -p "$label [$default]: " value || true; value="${value:-$default}"; else read -r -p "$label: " value || true; fi; fi; printf -v "$var" '%s' "$value"; }
+ask(){
+  local var="$1" label="$2" default="${3:-}" value="${!1:-}"
+  if [[ -z "$value" ]]; then
+    if (( UNATTENDED )); then
+      [[ -n "$default" ]] || { printf '[ERROR] 非交互模式（-y）缺少必填变量 %s，且无默认值\n' "$var" >&2; exit 1; }
+      value="$default"
+    elif [[ -n "$default" ]]; then
+      read -r -p "$label [$default]: " value || true
+      value="${value:-$default}"
+    else
+      read -r -p "$label: " value || true
+    fi
+  fi
+  printf -v "$var" '%s' "$value"
+}
 ask_secret(){ local var="$1" label="$2" value="${!1:-}"; if [[ -z "$value" ]]; then read -r -s -p "$label: " value || true; echo; fi; printf -v "$var" '%s' "$value"; }
 
 ask BOT_TOKEN "Telegram Bot Token（从 @BotFather 获取）"
@@ -69,6 +141,17 @@ ask REFERRAL_PERCENT "邀请返佣比例（百分比）" "3"
 ask EVENT_SECRET "第三方 TRON 事件服务 HMAC 密钥（留空自动生成）" ""
 if [[ -z "$EVENT_SECRET" ]]; then EVENT_SECRET="$(openssl rand -hex 32)"; fi
 [[ ${#EVENT_SECRET} -ge 32 ]] || die "事件 HMAC 密钥至少 32 个字符。"
+
+if (( DRY_RUN )); then
+  info "演练模式（--dry-run）：以下步骤不会真正执行。"
+  info "APP_DIR=$APP_DIR"
+  info "ENV_FILE=$ENV_FILE"
+  info "SERVICE=$APP_NAME"
+  info "DB_NAME=$DB_NAME  DB_USER=$DB_USER"
+  info "DOMAIN=${DOMAIN:-（未设置）}"
+  info "将执行：apt-get install / useradd / npm install / mysql schema / systemd unit"
+  exit 0
+fi
 
 export DEBIAN_FRONTEND=noninteractive
 info "安装系统依赖（MySQL、Nginx、Node.js、age、rsync、curl）..."
