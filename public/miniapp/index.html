@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<title>TRON 能量中心</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#141e30;--line:#26344a;--muted:#91a2bc;--text:#edf4ff;--green:#49e0a2;--blue:#70a5ff}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 50% -15%,#20365a 0,transparent 55%),var(--bg);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button{font:inherit;cursor:pointer}
+#app{max-width:650px;margin:auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+.brand{display:flex;align-items:center;gap:11px;font-size:18px;font-weight:800}
+.logo{display:grid;place-items:center;width:42px;height:42px;border-radius:15px;background:linear-gradient(145deg,#56efb3,#258cdb);color:#071b27;font-size:21px}
+.pill{font-size:11px;color:var(--green);background:#15352f;border:1px solid #275a4b;border-radius:30px;padding:6px 10px}
+.hello{color:var(--muted);margin:0 0 14px}
+.balance{padding:23px;border-radius:23px;background:linear-gradient(125deg,#1a3e50,#182942 65%,#282b55);border:1px solid #34516b;box-shadow:0 15px 35px #0002}
+.eyebrow{font-size:12px;color:#b5c9dc}
+.amount{font-size:34px;font-weight:800;letter-spacing:-1px;margin:10px 0 4px;overflow-wrap:anywhere}
+.amount small{font-size:14px;letter-spacing:0;color:#b7d6e5}
+.note{font-size:12px;color:#b3c4d7}
+.section{display:flex;justify-content:space-between;align-items:center;margin:25px 2px 12px}
+h2{font-size:16px;margin:0}
+.sub{color:var(--muted);font-size:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:15px;min-width:0}
+.card .label{font-size:12px;color:var(--muted);margin-bottom:12px}
+.value{font-size:21px;font-weight:750;overflow-wrap:anywhere}
+.unit{font-size:11px;color:var(--muted);margin-top:5px}
+.list{display:grid;gap:10px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:14px;min-width:0}
+.itemtop{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.address{font-size:12px;overflow-wrap:anywhere;color:#dbe7fa;margin-top:9px}
+.tag{font-size:10px;padding:4px 7px;border-radius:8px;background:#24334a;color:#adc9f9;white-space:nowrap}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.btn{border:1px solid #354761;border-radius:11px;padding:9px 12px;background:#1b2a40;color:var(--text);font-size:12px}
+.btn.primary{background:#193e37;border-color:#2c6856;color:#9ff3ce}
+.tabs{display:flex;gap:8px;overflow:auto;padding:3px 0 7px}
+.tab{flex:1;white-space:nowrap;background:transparent;border:1px solid var(--line);border-radius:12px;padding:10px 8px;color:var(--muted);font-size:12px}
+.tab.active{background:#1d3546;border-color:#386b77;color:#a7f1db}
+.empty,.error{padding:22px 12px;text-align:center;color:var(--muted);font-size:13px}
+.error{color:#ffaaa7}
+.footer{text-align:center;color:#64758f;font-size:11px;padding:25px 0 8px}
+.hash{font-size:11px;overflow-wrap:anywhere;color:#9bb5d6;margin-top:7px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="top">
+    <div class="brand"><div class="logo">ϟ</div><div>TRON 能量中心<div class="sub" style="margin-top:3px">钱包 · 资源 · 交易</div></div></div>
+    <span class="pill">● 安全连接</span>
+  </div>
+
+  <p class="hello">你好，{{ me?.user?.firstName || '欢迎回来' }}</p>
+
+  <section class="balance">
+    <div class="eyebrow">账户可用余额</div>
+    <div class="amount">{{ me ? Number(me.user.balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:6}) : '—' }} <small>USDT</small></div>
+    <div class="note">余额以系统账本为准 · 链上资产独立显示</div>
+  </section>
+
+  <div class="section"><h2>服务概览</h2><span class="sub">实时请求</span></div>
+  <div class="grid">
+    <div class="card"><div class="label">监控钱包</div><div class="value">{{ wallets.length }}</div><div class="unit">已启用地址</div></div>
+    <div class="card"><div class="label">能量服务</div><div class="value" style="font-size:17px">{{ me?.capabilities?.energyProviderConfigured ? '已配置' : '暂未开通' }}</div><div class="unit">供应商状态</div></div>
+  </div>
+
+  <div class="section"><h2>管理中心</h2><button class="btn" @click="refresh" :disabled="loading">{{ loading ? '刷新中…' : '↻ 刷新数据' }}</button></div>
+  <div class="tabs">
+    <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">我的钱包</button>
+    <button class="tab" :class="{active:tab==='transactions'}" @click="tab='transactions';loadTransactions()">交易记录</button>
+    <button class="tab" :class="{active:tab==='orders'}" @click="tab='orders';loadOrders()">能量订单</button>
+  </div>
+
+  <div v-if="error" class="error">{{ error }}</div>
+  <template v-if="tab==='wallets'">
+    <div v-if="!wallets.length && !loading" class="empty">暂无启用的钱包地址<br>请先在机器人中使用“钱包管理”添加地址。</div>
+    <div class="list">
+      <div class="item" v-for="w in wallets" :key="w.id">
+        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?'充值钱包':'监控钱包') }}</strong><span class="tag">{{ w.wallet_type==='deposit'?'充值地址':'监控地址' }}</span></div>
+        <div class="address">{{ w.address }}</div>
+        <div class="sub" style="margin-top:8px">最后扫描：{{ w.last_scanned_at || '暂无记录' }}</div>
+        <div class="actions"><button class="btn primary" @click="loadResources(w)">查询链上资源</button></div>
+        <div v-if="resourceFor===w.id && resource" class="grid" style="margin-top:12px">
+          <div class="card"><div class="label">TRX 余额</div><div class="value">{{ resource.trx }}</div><div class="unit">TRX</div></div>
+          <div class="card"><div class="label">USDT 余额</div><div class="value">{{ resource.usdt ?? '查询不可用' }}</div><div class="unit">TRC20</div></div>
+          <div class="card"><div class="label">能量</div><div class="value">{{ resource.energyLimit }}</div><div class="unit">已使用 {{ resource.energyUsed }}</div></div>
+          <div class="card"><div class="label">带宽</div><div class="value">{{ resource.netLimit }}</div><div class="unit">已使用 {{ resource.netUsed }}</div></div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <template v-if="tab==='transactions'">
+    <div v-if="!transactions.length" class="empty">暂无已入库交易记录。</div>
+    <div class="list"><div class="item" v-for="(t,i) in transactions" :key="t.tx_hash+'-'+t.event_index">
+      <div class="itemtop"><strong>{{ t.amount }} <small>代币单位</small></strong><span class="tag">{{ Number(t.confirmed)===1?'已确认':'待确认' }}</span></div>
+      <div class="sub" style="margin-top:9px">钱包：{{ short(t.wallet_address) }}</div>
+      <div class="hash">交易哈希：{{ t.tx_hash }}</div>
+      <div class="sub" style="margin-top:7px">{{ time(t.block_timestamp) }}</div>
+    </div></div>
+  </template>
+
+  <template v-if="tab==='orders'">
+    <div v-if="!orders.length" class="empty">暂无能量订单。</div>
+    <div class="list"><div class="item" v-for="o in orders" :key="o.id">
+      <div class="itemtop"><strong>订单 #{{ o.id }}</strong><span class="tag">{{ statusText(o.status) }}</span></div>
+      <div class="address">接收地址：{{ o.receiver_address }}</div>
+      <div class="sub" style="margin-top:8px">{{ o.energy_amount }} 能量 · {{ o.duration_minutes }} 分钟</div>
+      <div class="sub" style="margin-top:5px">报价：{{ o.quoted_price }} {{ o.currency }}</div>
+    </div></div>
+    <div class="empty">当前页面只展示订单，不会发起购买或扣款。</div>
+  </template>
+
+  <div class="footer">TRON Energy · Telegram Mini App<br>请勿向任何人提供私钥或助记词</div>
+</div>
+
+<script>
+const {createApp}=Vue;
+createApp({
+ data(){return {me:null,wallets:[],transactions:[],orders:[],tab:'wallets',loading:false,error:'',resourceFor:null,resource:null}},
+ async mounted(){
+   if(!window.Telegram?.WebApp){this.error='请在 Telegram 机器人内打开此应用。';return}
+   Telegram.WebApp.ready();Telegram.WebApp.expand();
+   try{await this.refresh()}catch(e){this.error=e.message}
+ },
+ methods:{
+  async api(path){
+   const initData=window.Telegram?.WebApp?.initData||'';
+   const r=await fetch('/api/miniapp'+path,{headers:{'X-Telegram-Init-Data':initData,'Accept':'application/json'},cache:'no-store'});
+   const d=await r.json().catch(()=>({error:'服务器返回格式无效'}));
+   if(!r.ok)throw Error(d.error||'请求失败');
+   return d
+  },
+  async refresh(){
+   this.loading=true;this.error='';
+   try{const [m,w]=await Promise.all([this.api('/me'),this.api('/wallets')]);this.me=m;this.wallets=w.wallets||[]}
+   catch(e){this.error=e.message;throw e}
+   finally{this.loading=false}
+  },
+  async loadTransactions(){this.error='';try{this.transactions=(await this.api('/transactions')).transactions||[]}catch(e){this.error=e.message}},
+  async loadOrders(){this.error='';try{this.orders=(await this.api('/energy-orders')).orders||[]}catch(e){this.error=e.message}},
+  async loadResources(w){
+   this.error='';this.resourceFor=w.id;this.resource=null;
+   try{this.resource=await this.api('/wallets/'+w.id+'/resources')}catch(e){this.error=e.message}
+  },
+  short(s){return s?String(s).slice(0,10)+'…'+String(s).slice(-6):'—'},
+  time(v){if(!v)return '时间未知';const n=Number(v);const d=new Date(n<1e12?n*1000:n);return Number.isNaN(d.getTime())?'时间未知':d.toLocaleString()},
+  statusText(s){return ({pending_provider:'等待供应商',processing:'处理中',completed:'已完成',failed:'失败',refunded:'已退款'})[s]||s}
+ }
+}).mount('#app');
+</script>
+</body>
+</html>
