@@ -128,12 +128,20 @@ function createBot() {
 
   const showHome = async ctx => {
     const u = await getOrCreateUser(ctx);
+    const lang = await langOf(ctx, query);
+    const name = esc(u.first_name || t(lang, 'home.guest'));
     await render(
       ctx,
-      `👋 欢迎回来，${esc(u.first_name || '顾客')}！\n\n` +
-      `💰 可用余额：<b>${u.balance} USDT</b>\n\n` +
-      `请选择下面的服务。\n\n` +
-      `🔐 请勿发送助记词、私钥或验证码。`,
+      t(lang, 'home.greeting', { name }) + '
+
+' +
+      t(lang, 'home.balance',  { balance: u.balance }) + '
+
+' +
+      t(lang, 'home.prompt') + '
+
+' +
+      t(lang, 'home.security'),
       homeMenu
     );
   };

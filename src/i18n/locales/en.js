@@ -43,6 +43,7 @@ module.exports = {
   'wallet.back':       '↩️ Back',
 
   // Home
+  'home.guest':        'Guest',
   'home.greeting':     '👋 Welcome back, {name}!',
   'home.balance':      '💰 Balance: <b>{balance} USDT</b>',
   'home.prompt':       'Choose a service below.',

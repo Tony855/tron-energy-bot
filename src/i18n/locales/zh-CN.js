@@ -44,6 +44,7 @@ module.exports = {
   'wallet.back':       '↩️ 返回监听管理',
 
   // 首页
+  'home.guest':        '顾客',
   'home.greeting':     '👋 欢迎回来，{name}！',
   'home.balance':      '💰 可用余额：<b>{balance} USDT</b>',
   'home.prompt':       '请选择下面的服务。',
