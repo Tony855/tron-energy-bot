@@ -103,6 +103,11 @@ button:hover{filter:brightness(1.12)}button:disabled{opacity:.5;cursor:wait}
 table{border-collapse:collapse;width:100%;min-width:560px}td,th{text-align:left;padding:11px 10px;border-bottom:1px solid #26374e;overflow-wrap:anywhere}th{color:#a7bad1;font-size:12px;font-weight:650}tr:hover td{background:#ffffff04}
 .small{color:var(--muted);font-size:12px}#app{display:none}.row{display:flex;gap:10px;flex-wrap:wrap}.row .card{flex:1;min-width:min(180px,100%)}#msg{color:#ffb3a8}
 @media(max-width:600px){body{padding:12px}section{padding:13px;overflow-x:auto}.row .card{min-width:130px}input,select{width:100%;margin:4px 0}button{margin:4px 2px}}
+
+.tabbar{display:flex;gap:6px;overflow-x:auto;padding:8px 0;margin-bottom:10px;flex-wrap:nowrap}
+.tabbar button{padding:8px 14px;border-radius:9px;border:1px solid #2d415b;background:#19283c;color:#a7bad1;font-size:13px;white-space:nowrap;cursor:pointer;min-height:38px}
+.tabbar button.active{background:#15392f;border-color:#2a745b;color:#8ef0c5}
+main > section[data-tab-hidden]{display:none}
 </style><main><h1>TRON 能量管理后台</h1><p class="small">V2.6 · 共享登录限流、管理员会话即时撤销、角色权限与链上核验</p>
 <section id="login"><h2>管理员登录</h2><input id="username" placeholder="用户名" value="admin"><input id="password" type="password" placeholder="密码"><button onclick="login()">登录</button><p id="msg"></p></section>
 <div id="app"><div class="row" id="stats"></div><section><h2>分配独立充值地址</h2><p class="small">填写现有、由你安全控制的 TRON 地址。此页面不会生成钱包或保存私钥。</p><input id="walletUserId" type="number" min="1" placeholder="用户内部 ID"><input id="walletAddress" placeholder="T 开头的 TRON 地址" style="min-width:340px"><input id="walletLabel" placeholder="标签（可选）"><button onclick="assignWallet()">分配地址</button><p id="walletMsg"></p></section>

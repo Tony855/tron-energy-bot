@@ -257,19 +257,6 @@ async function getTrc20Balance(address) {
     return bytes.subarray(1, 21).toString('hex');
   })();
 
-  const contractHex = (() => {
-    const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-    let n = 0n;
-    for (const ch of contract) n = n * 58n + BigInt(alphabet.indexOf(ch));
-    let hex = n.toString(16);
-    if (hex.length % 2) hex = '0' + hex;
-    let bytes = Buffer.from(hex, 'hex');
-    let zeros = 0;
-    while (zeros < contract.length && contract[zeros] === '1') zeros++;
-    if (zeros) bytes = Buffer.concat([Buffer.alloc(zeros), bytes]);
-    if (bytes.length !== 25 || bytes[0] !== 0x41) throw new Error('USDT 合约地址无效');
-    return bytes.subarray(1, 21).toString('hex');
-  })();
 
   const result = await post('/wallet/triggerconstantcontract', {
     owner_address: address,
@@ -288,8 +275,6 @@ async function getTrc20Balance(address) {
     throw new Error('TRC20 返回的余额数据无效');
   }
 
-  // 防止误将其他合约结果当作 USDT；请求本身以配置的合约地址为准。
-  void contractHex;
   return rawToDecimal(BigInt('0x' + raw).toString(), decimals);
 }
 
