@@ -6,9 +6,11 @@ const VALID_ROLES = Object.freeze(['super_admin', 'finance', 'operator', 'audito
 function permissionFor(method, path) {
   const m = String(method || 'GET').toUpperCase();
   const p = String(path || '').split('?')[0];
-  if (p === '/api/login' || p === '/health' || p === '/') return 'public';
+  if (p === '/api/login' || p === '/health' || p === '/api/health' || p === '/api/version' || p === '/') return 'public';
   if (/^\/api\/admins(?:\/|$)/.test(p)) return 'admin_manage';
   if (m === 'GET' && p === '/api/dashboard') return 'dashboard';
+  if (m === 'GET' && /^\/api\/deposits\/\d+$/.test(p)) return 'finance_read';
+  if (m === 'GET' && /^\/api\/withdrawals\/\d+$/.test(p)) return 'finance_read';
   if (m === 'GET' && ['/api/deposits','/api/users','/api/withdrawals','/api/audit-logs','/api/commissions','/api/reconciliation/summary','/api/reconciliation/snapshots','/api/ledger/export.csv','/api/finance-audit'].includes(p)) return 'finance_read';
   if (m === 'GET' && ['/api/deposit-wallets','/api/deposit-address-pool'].includes(p)) return 'wallet_read';
   if (m === 'GET' && p === '/api/energy-orders') return 'operations_read';

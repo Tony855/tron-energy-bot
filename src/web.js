@@ -24,7 +24,18 @@ const app = express();
 app.set('trust proxy', 'loopback');
 require('./miniapp-mount')(app);
 app.use(helmet({ contentSecurityPolicy: false }));
+// 简单 IP 节流：同一个 IP 1 秒内重复请求直接 429（防暴力探测）
+const webhookThrottle = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, t] of webhookThrottle) if (now - t > 60_000) webhookThrottle.delete(k);
+}, 60_000).unref();
+
 app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32kb' }), async (req, res) => {
+  const ip = String(req.ip || req.socket?.remoteAddress || 'unknown');
+  const last = webhookThrottle.get(ip) || 0;
+  if (Date.now() - last < 1000) return res.status(429).json({ error: 'too many requests' });
+  webhookThrottle.set(ip, Date.now());
   if (!process.env.TRON_EVENT_WEBHOOK_SECRET) return res.status(503).json({ error: 'event provider not configured' });
   try { return res.json(await require('./eventBridge').handleEvent(req.body, req.get('x-tron-signature'))); }
   catch (e) { return res.status(e.status || 503).json({ error: e.status ? e.message : 'chain verification unavailable' }); }
@@ -74,8 +85,15 @@ async function audit(admin, action, targetType, targetId, details = {}, ipAddres
   );
 }
 
+app.get('/api/version', (req, res) => {
+  let v = 'unknown';
+  try { v = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'VERSION'), 'utf8').trim(); } catch {}
+  res.json({ version: v, service: 'tron-energy-bot', node: process.versions.node });
+});
+
 app.get('/api/events/status', auth, (req, res) => res.json(require('./eventBridge').getStatus()));
 
+app.get('/api/health', (req, res) => res.redirect(307, '/health'));
 app.get('/health', async (req, res) => {
   let database = 'ok';
   try { await pool.query('SELECT 1'); } catch { database = 'error'; }
@@ -405,6 +423,20 @@ app.post('/api/deposits/manual', auth, async (req, res) => {
   res.json({ ok: true, id: result.insertId, status: 'pending' });
 });
 
+app.get('/api/deposits/:id', auth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: '充值订单 ID 无效' });
+  const rows = await query(
+    `SELECT r.id,r.user_id,r.wallet_id,r.tx_hash,r.event_index,r.amount,r.currency,r.source,r.status,
+            r.note,r.reviewed_by,r.reviewed_at,r.chain_verified_at,r.chain_verified_json,r.created_at,
+            w.address AS deposit_address
+       FROM recharge_orders r LEFT JOIN wallets w ON w.id=r.wallet_id
+      WHERE r.id=? LIMIT 1`, [id]
+  );
+  if (!rows.length) return res.status(404).json({ error: '充值订单不存在' });
+  res.json(rows[0]);
+});
+
 app.get('/api/deposits', auth, async (req, res) => {
   const status = req.query.status || 'pending';
   res.json(await query(
@@ -483,6 +515,20 @@ app.get('/api/audit-logs', auth, async (req, res) => {
 app.get('/api/users', auth, async (req, res) => {
   res.json(await query('SELECT id,telegram_id,username,balance,created_at FROM users ORDER BY id DESC LIMIT 200'));
 });
+app.get('/api/withdrawals/:id', auth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: '提现单 ID 无效' });
+  const rows = await query(
+    `SELECT wr.id,wr.user_id,u.telegram_id,wr.amount,wr.currency,wr.destination_address,
+            wr.status,wr.tx_hash,wr.reviewed_by,wr.reviewed_at,wr.note,wr.created_at,
+            wr.chain_verified_at,wr.chain_verified_json
+       FROM withdrawal_requests wr JOIN users u ON u.id=wr.user_id
+      WHERE wr.id=? LIMIT 1`, [id]
+  );
+  if (!rows.length) return res.status(404).json({ error: '提现单不存在' });
+  res.json(rows[0]);
+});
+
 app.get('/api/withdrawals', auth, async (req, res) => {
   const status = String(req.query.status || 'pending');
   const allowed = ['pending', 'approved', 'paid', 'rejected', 'cancelled'];
