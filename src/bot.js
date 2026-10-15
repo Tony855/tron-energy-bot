@@ -132,16 +132,13 @@ function createBot() {
     const name = esc(u.first_name || t(lang, 'home.guest'));
     await render(
       ctx,
-      t(lang, 'home.greeting', { name }) + '
+      `${t(lang, 'home.greeting', { name })}
 
-' +
-      t(lang, 'home.balance',  { balance: u.balance }) + '
+${t(lang, 'home.balance', { balance: u.balance })}
 
-' +
-      t(lang, 'home.prompt') + '
+${t(lang, 'home.prompt')}
 
-' +
-      t(lang, 'home.security'),
+${t(lang, 'home.security')}`,
       homeMenu
     );
   };
