@@ -733,22 +733,28 @@ function createBot() {
       const bar = n => n === null ? '资源数据暂不可用'
         : '▰'.repeat(Math.round(n / 10)) + '▱'.repeat(10 - Math.round(n / 10));
       const ep = pct(r.energyUsed, r.energyLimit);
-      const np = pct(r.netUsed, r.netLimit);
+      const np = pct(
+        (Number(r.netUsed) || 0) + (Number(r.freeNetUsed) || 0),
+        (Number(r.netLimit) || 0) + (Number(r.freeNetLimit) || 0)
+      );
       const fmt = n => `${Number(n) || 0}%`;
 
       await render(
         ctx,
-        `🔎 <b>监听地址资源</b>\n` +
-        `━━━━━━━━━━━━━━━━━━\n` +
+        `🔍 <b>监听地址资源</b>\n\n` +
         `📍 <b>地址</b>\n<code>${w.address}</code>\n\n` +
+        `━━━━━━━━━━━━━━━\n\n` +
         `💰 <b>资产</b>\n` +
-        `🔴 TRX：<b>${r.trx}</b>\n` +
-        `🟢 USDT (TRC20)：<b>${usdtBalance ?? '查询不可用'}</b>\n\n` +
-        `📊 <b>资源</b>\n` +
-        `⚡ Energy：${resourceValue(r.energyUsed)} / ${resourceValue(r.energyLimit)}（${fmt(ep)}）\n${bar(ep)}\n` +
-        `📶 Bandwidth：${resourceValue(r.netUsed)} / ${resourceValue(r.netLimit)}（${fmt(np)}）\n${bar(np)}\n` +
-        `🆓 免费 Bandwidth：${resourceValue(r.freeNetUsed)} / ${resourceValue(r.freeNetLimit)}\n\n` +
-        `ℹ️ 收款/付款记录仅包含本系统已记录的链上交易。`,
+        `  🔴 TRX  ·  <b>${r.trx}</b>\n` +
+        `  🟢 USDT ·  <b>${usdtBalance ?? '查询不可用'}</b>\n\n` +
+        `⚡ <b>资源</b>\n` +
+        `  🔋 Energy     <b>${resourceValue(r.energyUsed)}</b> / ${resourceValue(r.energyLimit)}  <i>${fmt(ep)}</i>\n` +
+        `     ${bar(ep)}\n` +
+        `  📶 Bandwidth  <b>${resourceValue((Number(r.netUsed) || 0) + (Number(r.freeNetUsed) || 0))}</b> / ${resourceValue((Number(r.netLimit) || 0) + (Number(r.freeNetLimit) || 0))}  <i>${fmt(np)}</i>\n` +
+        `     ${bar(np)}\n` +
+        `     <i>质押 ${resourceValue(r.netUsed)} · 免费 ${resourceValue(r.freeNetLimit)}</i>\n\n` +
+        `━━━━━━━━━━━━━━━\n` +
+        `ℹ️ 仅显示本系统已记录的链上交易`,
         new InlineKeyboard()
           .text('📥 收款记录', `wallet:history:in:${w.id}`)
           .text('📤 付款记录', `wallet:history:out:${w.id}`).row()
