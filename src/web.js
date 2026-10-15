@@ -21,6 +21,7 @@ const { canAccess, VALID_ROLES } = require('./rbac');
 const loginGuard = createSharedLoginGuard(pool, { maxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5), windowMs: Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000), lockMs: Number(process.env.LOGIN_LOCK_MS || 15 * 60 * 1000) });
 
 const app = express();
+app.set('trust proxy', 'loopback');
 require('./miniapp-mount')(app);
 app.use(helmet({ contentSecurityPolicy: false }));
 app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32kb' }), async (req, res) => {
@@ -220,7 +221,7 @@ app.post('/api/login', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const username = String(req.body?.username || '').trim().slice(0, 128);
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
-  const ip = String(req.socket?.remoteAddress || 'unknown').slice(0, 64);
+  const ip = String(req.ip || req.socket?.remoteAddress || 'unknown').slice(0, 64);
   let decision;
   try { decision = await loginGuard.check(ip, username); } catch { return res.status(503).json({ error: '登录安全服务暂时不可用，请稍后重试' }); }
   if (!decision.allowed) {
@@ -333,6 +334,16 @@ app.get('/api/dashboard', auth, async (req, res) => {
   const [orders] = await query("SELECT COUNT(*) c FROM energy_orders WHERE status IN ('pending_provider','processing')");
   res.json({ stats: { '用户数': users.c, '监听地址数': wallets.c, '待审核充值': pending.c, '待处理能量订单': orders.c } });
 });
+app.get('/api/finance-audit', auth, async (req, res) => {
+  try {
+    const report = await runFinanceAudit();
+    await audit(req.admin.username, 'run_finance_audit', 'finance_audit', null, { ok: report.ok, counts: report.counts });
+    res.json(report);
+  } catch (e) {
+    res.status(500).json({ error: '财务审计运行失败', detail: e.message });
+  }
+});
+
 app.post('/api/deposit-address-pool/import', auth, async (req, res) => {
   const raw = String(req.body?.addresses || '');
   const addresses = raw.split(/[\r\n,\s]+/).map(x => x.trim()).filter(Boolean);

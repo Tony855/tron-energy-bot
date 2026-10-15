@@ -12,7 +12,7 @@ function permissionFor(method, path) {
   if (m === 'GET' && ['/api/deposits','/api/users','/api/withdrawals','/api/audit-logs','/api/commissions','/api/reconciliation/summary','/api/reconciliation/snapshots','/api/ledger/export.csv','/api/finance-audit'].includes(p)) return 'finance_read';
   if (m === 'GET' && ['/api/deposit-wallets','/api/deposit-address-pool'].includes(p)) return 'wallet_read';
   if (m === 'GET' && p === '/api/energy-orders') return 'operations_read';
-  if (m === 'GET' && ['/api/chain-backfill/status','/api/chain-alerts/recent','/api/chain-audit'].includes(p)) return 'chain_read';
+  if (m === 'GET' && ['/api/chain-backfill/status','/api/chain-alerts/recent','/api/chain-audit','/api/events/status'].includes(p)) return 'chain_read';
   if (p === '/api/chain-backfill/run' && m === 'POST') return 'chain_ops';
   if (p === '/api/chain-alerts/run' && m === 'POST') return 'chain_ops';
   if (p === '/api/reconciliation/snapshot' && m === 'POST') return 'finance_write';
