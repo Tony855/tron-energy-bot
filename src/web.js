@@ -151,7 +151,7 @@ window.login = login;
 function table(rows,cols,actions){if(!rows.length)return '<p class="small">暂无数据</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+c[1]+'</th>').join('')+'<th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c[0]]??'')+'</td>').join('')+'<td>'+(actions?actions(r):'—')+'</td></tr>').join('')+'</tbody></table>'}
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 async function assignWallet(){try{let d=await api('/wallets/deposit-address',{method:'POST',body:JSON.stringify({user_id:Number(walletUserId.value),address:walletAddress.value.trim(),label:walletLabel.value.trim()})});walletMsg.textContent='已分配地址：'+d.address;walletAddress.value='';await load()}catch(e){walletMsg.textContent=e.message}}
-async function loadWallets(){try{let w=await api('/deposit-wallets');depositWallets.innerHTML=table(w,[['id','钱包ID'],['user_id','用户ID'],['address','充值地址'],['label','标签'],['last_scanned_at','最后扫描']]);}catch(e){alert(e.message)}}
+async function loadWallets(){try{let w=await api('/deposit-wallets');depositWallets.innerHTML=table(w,[['id','地址ID'],['user_id','用户ID'],['address','充值地址'],['label','标签'],['last_scanned_at','最后扫描']]);}catch(e){alert(e.message)}}
 async function importPool(){try{let d=await api('/deposit-address-pool/import',{method:'POST',body:JSON.stringify({addresses:addressPoolInput.value,source_label:poolLabel.value})});poolMsg.textContent='导入完成：新增 '+d.imported+'，跳过重复 '+d.skipped;addressPoolInput.value='';await loadPool()}catch(e){poolMsg.textContent=e.message}}
 async function loadPool(){try{let d=await api('/deposit-address-pool');poolRows.innerHTML='<p class="small">可用地址：'+d.available_count+'，已分配：'+d.assigned_count+'，禁用：'+d.disabled_count+'</p>'+table(d.rows,[['id','池ID'],['address','地址'],['status','状态'],['source_label','来源'],['assigned_user_id','用户ID'],['created_at','导入时间']]);}catch(e){poolRows.textContent=e.message}}
 async function assignFromPool(id){if(!confirm('为用户 '+id+' 分配下一个专属充值地址？'))return;try{let d=await api('/deposit-address-pool/assign/'+id,{method:'POST'});alert('充值地址：'+d.address);await load()}catch(e){alert(e.message)}}
@@ -293,7 +293,7 @@ app.get('/api/dashboard', auth, async (req, res) => {
   const [wallets] = await query('SELECT COUNT(*) c FROM wallets WHERE is_active=1');
   const [pending] = await query("SELECT COUNT(*) c FROM recharge_orders WHERE status='pending'");
   const [orders] = await query("SELECT COUNT(*) c FROM energy_orders WHERE status IN ('pending_provider','processing')");
-  res.json({ stats: { '用户数': users.c, '监控钱包数': wallets.c, '待审核充值': pending.c, '待处理能量订单': orders.c } });
+  res.json({ stats: { '用户数': users.c, '监听地址数': wallets.c, '待审核充值': pending.c, '待处理能量订单': orders.c } });
 });
 app.post('/api/deposit-address-pool/import', auth, async (req, res) => {
   const raw = String(req.body?.addresses || '');

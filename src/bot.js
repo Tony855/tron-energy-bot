@@ -46,7 +46,7 @@ const homeMenu = () => new InlineKeyboard()
   .text('🧾 交易记录', 'transactions').text('📡 监听状态', 'status').row()
   .text('📊 今日简报', 'report').text('⚡ 能量服务', 'energy').row()
   .text('🎁 邀请好友', 'referral').text('❔ 使用帮助', 'help').row()
-  .webApp('▣ 打开钱包控制台', 'https://tron.v2net.cc/miniapp/');
+  .webApp('▣ 打开监听控制台', 'https://tron.v2net.cc/miniapp/');
 
 const walletMenu = () => new InlineKeyboard()
   .text('➕ 添加监控地址', 'wallet:add').row()
@@ -411,7 +411,7 @@ function createBot() {
       pendingInput.delete(ctx.from.id);
       return render(
         ctx,
-        '✅ 地址已添加到你的独立只读监控列表。\n\n钱包、交易与通知仅关联你的账户。',
+        '✅ 地址已添加到你的独立只读监控列表。\n\n地址、交易与通知仅关联你的账户。',
         walletMenu()
       );
     } catch (e) {

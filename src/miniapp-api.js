@@ -127,7 +127,7 @@ router.get('/wallets', async (req, res) => {
 router.get('/wallets/:id/resources', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) {
-    return res.status(400).json({ error: '钱包 ID 无效' });
+    return res.status(400).json({ error: '地址 ID 无效' });
   }
 
   const rows = await query(
@@ -135,7 +135,7 @@ router.get('/wallets/:id/resources', async (req, res) => {
       WHERE id=? AND user_id=? AND is_active=1 LIMIT 1`,
     [id, req.miniUser.id]
   );
-  if (!rows.length) return res.status(404).json({ error: '钱包不存在' });
+  if (!rows.length) return res.status(404).json({ error: '地址不存在' });
 
   try {
     const [account, usdt] = await Promise.all([
