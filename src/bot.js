@@ -47,6 +47,7 @@ const homeKeyboard = () => new InlineKeyboard().text('🏠 返回主菜单', 'ho
 const walletKeyboard = () => new InlineKeyboard()
   .text('➕ 添加监控地址', 'wallet:add').row()
   .text('📋 我的地址', 'wallet:list').text('🗑 停用地址', 'wallet:remove').row()
+  .text('♻️ 已停用地址', 'wallet:disabled').row()
   .text('🔎 查询资源与余额', 'wallet:resources').row()
   .text('📜 历史记录', 'wallet:history').row()
   .text('🏠 返回主菜单', 'home');
@@ -60,7 +61,26 @@ function createBot() {
   const bot = new Bot(process.env.BOT_TOKEN);
   const pendingInput = new Map();
   const userIdFor = async telegramId => { const rows = await query('SELECT id FROM users WHERE telegram_id=?', [telegramId]); return rows[0]?.id || null; };
-  const showHome = async ctx => { const u = await getOrCreateUser(ctx); await ctx.reply(`👋 欢迎回来，${u.first_name || '顾客'}！\n\n💰 可用余额：${u.balance} USDT\n请选择下面的服务。\n\n🔐 请勿发送助记词、私钥或验证码。`, { reply_markup: menu }); };
+  const showHome = async ctx => {
+    const u = await getOrCreateUser(ctx);
+    const text = `👋 欢迎回来，${u.first_name || '顾客'}！\n\n💰 可用余额：${u.balance} USDT\n请选择下面的服务。\n\n🔐 请勿发送助记词、私钥或验证码。`;
+
+    // 点击内联“主菜单”时优先编辑原消息，避免重复发送菜单。
+    if (ctx.callbackQuery?.message) {
+      try {
+        await ctx.editMessageText(text, { reply_markup: menu });
+        return;
+      } catch (e) {
+        if (!String(e.description || e.message || '').includes('message is not modified')) {
+          // 原消息不能编辑时，退回发送新消息。
+        } else {
+          return;
+        }
+      }
+    }
+
+    await ctx.reply(text, { reply_markup: menu });
+  };
   bot.command('start', showHome);
   bot.command('help', ctx => ctx.reply('命令：/start /balance /wallets /addwallet /removewallet /resources /deposit /withdraw /transactions /status /referral /report\n管理员：/pendingrecharges /verifyrecharge ID /approverecharge ID /rejectrecharge ID 原因\n请勿向机器人发送助记词或私钥。'));
   bot.command('balance', async ctx => {
@@ -102,14 +122,48 @@ function createBot() {
   });
   bot.command('addwallet', async ctx => {
     const address = String(ctx.match || '').trim();
-    if (!validateAddress(address)) return ctx.reply('格式不正确。请使用：/addwallet T开头的TRON地址');
+
+    // 仅输入 /addwallet 时，进入引导输入模式。
+    if (!address) {
+      pendingInput.set(ctx.from.id, 'addwallet');
+      return ctx.reply(
+        '➕ <b>添加只读监控地址</b>\n\n请直接发送 TRON 主网公开地址（T 开头），不要发送私钥。\n发送 /cancel 可取消。',
+        { parse_mode: 'HTML', reply_markup: cancelKeyboard() }
+      );
+    }
+
+    if (!validateAddress(address)) {
+      pendingInput.set(ctx.from.id, 'addwallet');
+      return ctx.reply(
+        '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址，或点击取消。',
+        { reply_markup: cancelKeyboard() }
+      );
+    }
+
     const users = await query('SELECT id FROM users WHERE telegram_id=?', [ctx.from.id]);
     if (!users.length) return ctx.reply('请先发送 /start');
+
     try {
-      await query("INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')", [users[0].id, address]);
-      ctx.reply('✅ 地址已添加到你的独立监控列表。\n\n钱包、交易与通知仅关联你的账户。实时发现交易需要管理员配置第三方 TRON 事件推送服务。', { reply_markup: walletKeyboard() });
+      await query(
+        "INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')",
+        [users[0].id, address]
+      );
+      pendingInput.delete(ctx.from.id);
+      return ctx.reply(
+        '✅ 地址已添加到你的独立只读监控列表。\n\n钱包、交易与通知仅关联你的账户。实时发现交易需要管理员配置第三方 TRON 事件推送服务。',
+        { reply_markup: walletKeyboard() }
+      );
     } catch (e) {
-      ctx.reply(e.code === 'ER_DUP_ENTRY' ? '该钱包已被添加。' : '添加失败，请稍后重试。');
+      if (e.code === 'ER_DUP_ENTRY') {
+        pendingInput.delete(ctx.from.id);
+        return ctx.reply('该地址已存在，请勿重复添加。', {
+          reply_markup: walletKeyboard()
+        });
+      }
+      console.error('[addwallet]', e.message);
+      return ctx.reply('添加失败，请重试或发送 /cancel 取消。', {
+        reply_markup: cancelKeyboard()
+      });
     }
   });
   bot.command('resources', async ctx => {
@@ -283,6 +337,148 @@ function createBot() {
     await ctx.reply('📋 <b>我的地址</b>\n\n' + (ws.length ? ws.map(w => `${w.wallet_type === 'deposit' ? '📥 充值地址' : '👁 监控地址'} ${w.label || ''}\n<code>${w.address}</code>\n最近事件：${w.last_scanned_at || '等待事件源推送'}`).join('\n\n') : '暂无地址。'), { parse_mode: 'HTML', reply_markup: walletKeyboard() });
   });
   bot.callbackQuery('wallet:add', async ctx => { pendingInput.set(ctx.from.id, 'addwallet'); await ctx.answerCallbackQuery(); await ctx.reply('➕ <b>添加监控地址</b>\n\n请发送 TRON 主网公开地址（T 开头）。\n本功能只读监控，不会要求私钥。', { parse_mode: 'HTML', reply_markup: cancelKeyboard() }); });
+
+  // 已停用监控地址：允许恢复，或进入永久删除确认流程。
+  bot.callbackQuery('wallet:disabled', async ctx => {
+    await ctx.answerCallbackQuery();
+    const uid = await userIdFor(ctx.from.id);
+    if (!uid) return ctx.reply('请先发送 /start');
+
+    const ws = await query(
+      "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=0 ORDER BY id DESC LIMIT 20",
+      [uid]
+    );
+    const kb = new InlineKeyboard();
+    for (const w of ws) {
+      kb.text('♻️ ' + w.address.slice(0, 8) + '…' + w.address.slice(-5),
+        'wallet:restore:' + w.id).row();
+      kb.text('🗑 删除 ' + w.address.slice(0, 6) + '…' + w.address.slice(-4),
+        'wallet:delete:' + w.id).row();
+    }
+    kb.text('↩️ 返回钱包管理', 'wallets').row().text('🏠 主菜单', 'home');
+    return ctx.reply(
+      ws.length ? '♻️ 已停用的监控地址\n请选择恢复或申请永久删除。' : '目前没有已停用的监控地址。',
+      { reply_markup: kb }
+    );
+  });
+
+  bot.callbackQuery(/^wallet:restore:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery();
+    const uid = await userIdFor(ctx.from.id);
+    if (!uid) return ctx.reply('请先发送 /start');
+    const id = Number(ctx.match[1]);
+    const [r] = await require('./db').pool.execute(
+      "UPDATE wallets SET is_active=1 WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
+      [id, uid]
+    );
+    return ctx.reply(
+      r.affectedRows ? '✅ 监控地址已恢复启用。' : '地址不存在、已启用或不属于你的账户。',
+      { reply_markup: walletKeyboard() }
+    );
+  });
+
+  bot.callbackQuery(/^wallet:delete:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery();
+    const uid = await userIdFor(ctx.from.id);
+    if (!uid) return ctx.reply('请先发送 /start');
+    const id = Number(ctx.match[1]);
+    const rows = await query(
+      "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
+      [id, uid]
+    );
+    if (!rows.length) {
+      return ctx.reply('只能删除属于你自己的已停用监控地址。', {
+        reply_markup: walletKeyboard()
+      });
+    }
+    const kb = new InlineKeyboard()
+      .text('⚠️ 确认永久删除', 'wallet:delete:confirm:' + id).row()
+      .text('✖️ 取消', 'wallet:disabled').row()
+      .text('🏠 主菜单', 'home');
+    return ctx.reply(
+      '⚠️ 永久删除确认\n\n地址：\n<code>' + rows[0].address +
+      '</code>\n\n只有没有交易、充值、补扫或告警记录的地址才允许删除。此操作不可撤销。',
+      { parse_mode: 'HTML', reply_markup: kb }
+    );
+  });
+
+  bot.callbackQuery(/^wallet:delete:confirm:(\d+)$/, async ctx => {
+    await ctx.answerCallbackQuery();
+    const uid = await userIdFor(ctx.from.id);
+    if (!uid) return ctx.reply('请先发送 /start');
+    const id = Number(ctx.match[1]);
+    const pool = require('./db').pool;
+    let conn;
+    try {
+      conn = await pool.getConnection();
+      await conn.beginTransaction();
+      const [wallets] = await conn.execute(
+        "SELECT id,address,is_active FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' FOR UPDATE",
+        [id, uid]
+      );
+      if (!wallets.length || Number(wallets[0].is_active) !== 0) {
+        await conn.rollback();
+        return ctx.reply('地址不存在、未停用或不属于你的账户，已取消删除。', {
+          reply_markup: walletKeyboard()
+        });
+      }
+
+      // 只检查当前数据库实际存在的关联表；检查失败时拒绝删除。
+      const [tableRows] = await conn.execute(
+        "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()"
+      );
+      const existingTables = new Set(tableRows.map(r => r.TABLE_NAME));
+      const checks = [
+        ['transactions', 'SELECT COUNT(*) AS n FROM transactions WHERE wallet_id=?'],
+        ['recharge_orders', 'SELECT COUNT(*) AS n FROM recharge_orders WHERE wallet_id=?'],
+        ['deposit_address_pool', 'SELECT COUNT(*) AS n FROM deposit_address_pool WHERE assigned_wallet_id=?'],
+        ['chain_backfill_state', 'SELECT COUNT(*) AS n FROM chain_backfill_state WHERE wallet_id=?'],
+        ['chain_alert_events', 'SELECT COUNT(*) AS n FROM chain_alert_events WHERE wallet_id=?']
+      ];
+
+      for (const [name, sql] of checks) {
+        if (!existingTables.has(name)) continue;
+        const [rows] = await conn.execute(sql, [id]);
+        if (Number(rows[0].n) > 0) {
+          await conn.rollback();
+          return ctx.reply(
+            '⛔ 为保护历史数据，不能永久删除此地址：存在 ' + name +
+            ' 关联记录。你仍可以保留或重新启用该地址。',
+            { reply_markup: walletKeyboard() }
+          );
+        }
+      }
+
+      // 未知表或未覆盖的业务关联不在此处自动清理；外键约束仍会阻止不安全删除。
+
+      const [r] = await conn.execute(
+        "DELETE FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
+        [id, uid]
+      );
+      if (r.affectedRows !== 1) {
+        await conn.rollback();
+        return ctx.reply('地址状态已变化，未执行删除。', {
+          reply_markup: walletKeyboard()
+        });
+      }
+      await conn.commit();
+      return ctx.reply('✅ 地址已永久删除。未删除任何交易记录。', {
+        reply_markup: walletKeyboard()
+      });
+    } catch (e) {
+      if (conn) {
+        try { await conn.rollback(); } catch (_) {}
+      }
+      console.error('[wallet:delete]', e.message);
+      return ctx.reply(
+        '删除操作未完成。为保护数据，检查失败时系统会拒绝删除，请保留该地址并检查日志。',
+        { reply_markup: walletKeyboard() }
+      );
+    } finally {
+      if (conn) conn.release();
+    }
+  });
+
   bot.callbackQuery('wallet:remove', async ctx => {
     await ctx.answerCallbackQuery(); const uid = await userIdFor(ctx.from.id); if (!uid) return ctx.reply('请先发送 /start');
     const ws = await query("SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=1 ORDER BY id DESC LIMIT 10", [uid]);
@@ -620,12 +816,33 @@ function createBot() {
     const text = String(ctx.message.text || '').trim();
     if (text.startsWith('/')) return;
     const action = pendingInput.get(ctx.from.id); if (!action) return;
+
+    // 输入无效时保留等待状态，允许用户直接重试。
+    if (action === 'addwallet' && !validateAddress(text)) {
+      return ctx.reply(
+        '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址。\n也可以点击“取消操作”。',
+        { reply_markup: cancelKeyboard() }
+      );
+    }
+
     pendingInput.delete(ctx.from.id);
     if (action === 'addwallet') {
-      if (!validateAddress(text)) return ctx.reply('地址格式不正确，请重新选择“添加监控地址”后输入 T 开头的 TRON 地址。', { reply_markup: walletKeyboard() });
-      const uid = await userIdFor(ctx.from.id); if (!uid) return ctx.reply('请先发送 /start');
-      try { await query("INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')", [uid, text]); await ctx.reply('✅ 已添加到你的只读监控地址。', { reply_markup: walletKeyboard() }); }
-      catch (e) { await ctx.reply(e.code === 'ER_DUP_ENTRY' ? '该地址已在你的列表中。' : '添加失败，请稍后重试。', { reply_markup: walletKeyboard() }); }
+      const uid = await userIdFor(ctx.from.id);
+      if (!uid) return ctx.reply('请先发送 /start');
+      try {
+        await query(
+          "INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')",
+          [uid, text]
+        );
+        await ctx.reply('✅ 已添加到你的只读监控地址。', {
+          reply_markup: walletKeyboard()
+        });
+      } catch (e) {
+        await ctx.reply(
+          e.code === 'ER_DUP_ENTRY' ? '该地址已存在，请勿重复添加。' : '添加失败，请稍后重试。',
+          { reply_markup: walletKeyboard() }
+        );
+      }
     } else if (action === 'resources') {
       if (!validateAddress(text)) return ctx.reply('地址格式不正确，请使用 T 开头的 TRON 地址。', { reply_markup: walletKeyboard() });
       try {
