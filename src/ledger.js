@@ -23,6 +23,8 @@ async function postBalanceEntry(conn, {
 }) {
   if (!Number.isSafeInteger(Number(userId)) || Number(userId) <= 0) throw new Error('无效用户 ID');
   if (!idempotencyKey || String(idempotencyKey).length > 190) throw new Error('无效幂等键');
+  if (!VALID_ENTRY_TYPES.has(entryType)) throw new Error(`无效账本类型: ${entryType}`);
+  if (!VALID_REFERENCE_TYPES.has(referenceType)) throw new Error(`无效业务引用类型: ${referenceType}`);
   const amount = normalizeAmount(delta);
   // Lock the account first: serializes all balance mutations for this user.
   const [users] = await conn.execute('SELECT id,balance FROM users WHERE id=? FOR UPDATE', [userId]);
@@ -117,5 +119,13 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
     throw e;
   } finally { conn.release(); }
 }
+
+
+const VALID_ENTRY_TYPES = new Set([
+  'deposit', 'referral_bonus', 'energy_order_debit', 'refund', 'admin_adjustment'
+]);
+const VALID_REFERENCE_TYPES = new Set([
+  'recharge', 'referral', 'withdrawal', 'energy_order', 'manual'
+]);
 
 module.exports = { creditRecharge, postBalanceEntry };
