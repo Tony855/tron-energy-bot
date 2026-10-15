@@ -50,7 +50,7 @@ const homeMenu = () => new InlineKeyboard()
 
 const walletMenu = () => new InlineKeyboard()
   .text('➕ 添加监听地址', 'wallet:add').row()
-  .text('🔎 查询资源', 'wallet:resources').text('📜 历史记录', 'wallet:history').row()
+  .text('🔎 查询余额', 'wallet:resources').text('📜 历史记录', 'wallet:history').row()
   .text('🗑 停用地址', 'wallet:remove').text('♻️ 已停用地址', 'wallet:disabled').row()
   .text('🏠 返回主菜单', 'home');
 
@@ -531,7 +531,7 @@ function createBot() {
     await ctx.answerCallbackQuery();
     await pickMonitorWallet(
       ctx,
-      '🔎 <b>查询资源</b>\n\n请选择要查询的监听地址：',
+      '🔎 <b>查询余额</b>\n\n请选择要查询的监听地址：',
       'wallet:resource'
     );
   });
@@ -741,7 +741,7 @@ function createBot() {
 
       await render(
         ctx,
-        `🔍 <b>监听地址资源</b>\n\n` +
+        `🔍 <b>监听地址余额</b>\n\n` +
         `📍 <b>地址</b>\n<code>${w.address}</code>\n\n` +
         `━━━━━━━━━━━━━━━\n\n` +
         `💰 <b>资产</b>\n` +
