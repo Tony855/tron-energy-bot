@@ -164,7 +164,7 @@ function createBot() {
     }
     const kb = new InlineKeyboard();
     for (const w of ws) kb.text(`👁 ${shortAddr(w.address)}`, `${actionPrefix}:${w.id}`).row();
-    kb.text('↩️ 返回监听管理', 'wallets').row().text('🏠 主菜单', 'home');
+    kb.text(t(lang, 'wallet.back_home'), 'wallets').row().text(t(lang, 'menu.home_short'), 'home');
     return render(ctx, title, kb);
   };
 
@@ -200,9 +200,9 @@ function createBot() {
       `网络：TRON 主网\n币种：USDT-TRC20\n\n` +
       `⚠️ 仅发送指定合约的 USDT。到账识别后仍需链上核验与管理员审核。`,
       new InlineKeyboard()
-        .text('🧾 交易记录', 'transactions')
-        .text('📤 申请提现', 'withdraw').row()
-        .text('🏠 返回主菜单', 'home')
+        .text(t(lang, 'menu.transactions'), 'transactions')
+        .text(t(lang, 'deposit.withdraw'), 'withdraw').row()
+        .text(t(lang, 'menu.home'), 'home')
     );
   };
 
@@ -242,8 +242,8 @@ function createBot() {
       ctx,
       `🧾 <b>最近交易（最多 10 笔）</b>\n\n${body}`,
       new InlineKeyboard()
-        .text('🔄 刷新', 'transactions').row()
-        .text('🏠 返回主菜单', 'home')
+        .text(t(lang, 'tx.refresh'), 'transactions').row()
+        .text(t(lang, 'menu.home'), 'home')
     );
   };
 
@@ -521,6 +521,7 @@ function createBot() {
 
   bot.callbackQuery('help',         async ctx => { await ctx.answerCallbackQuery(); await showHelp(ctx); });
   bot.callbackQuery('balance',      async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const rows = await query('SELECT balance FROM users WHERE telegram_id=?', [ctx.from.id]);
     if (!rows.length) return render(ctx, '请先发送 /start', backHome);
@@ -528,9 +529,9 @@ function createBot() {
       ctx,
       `💰 <b>我的余额</b>\n\n可用余额：<b>${rows[0].balance} USDT</b>\n\n提现需提交申请并通过管理员审核。`,
       new InlineKeyboard()
-        .text('📤 申请提现', 'withdraw')
-        .text('📥 充值', 'deposit').row()
-        .text('🏠 返回主菜单', 'home')
+        .text(t(lang, 'deposit.withdraw'), 'withdraw')
+        .text(t(lang, 'balance.deposit'), 'deposit').row()
+        .text(t(lang, 'menu.home'), 'home')
     );
   });
   bot.callbackQuery(['wallets', 'wallet:list'],      async ctx => {
@@ -577,6 +578,7 @@ function createBot() {
   });
 
   bot.callbackQuery('wallet:remove', async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -587,11 +589,12 @@ function createBot() {
     if (!ws.length) return render(ctx, '没有可停用的监听地址。', walletMenu);
     const kb = new InlineKeyboard();
     for (const w of ws) kb.text(`🗑 ${shortAddr(w.address)}`, `wallet:rm:${w.id}`).row();
-    kb.text('↩️ 返回监听管理', 'wallets').row().text('🏠 主菜单', 'home');
+    kb.text(t(lang, 'wallet.back_home'), 'wallets').row().text(t(lang, 'menu.home_short'), 'home');
     await render(ctx, '选择要停用的地址。停用后不再接收新通知，历史记录保留。', kb);
   });
 
   bot.callbackQuery(/^wallet:rm:(\d+)$/, async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -604,9 +607,9 @@ function createBot() {
       ctx,
       `请确认是否停用这个监听地址：\n<code>${rows[0].address}</code>\n\n停用后不再接收新通知，历史交易保留。`,
       new InlineKeyboard()
-        .text('⚠️ 确认停用', `wallet:rm:yes:${rows[0].id}`).row()
-        .text('✖️ 取消', 'wallets').row()
-        .text('🏠 主菜单', 'home')
+        .text(t(lang, 'wallet.rm_confirm'), `wallet:rm:yes:${rows[0].id}`).row()
+        .text(t(lang, 'wallet.cancel'), 'wallets').row()
+        .text(t(lang, 'menu.home_short'), 'home')
     );
   });
 
@@ -626,6 +629,7 @@ function createBot() {
   });
 
   bot.callbackQuery('wallet:disabled', async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -636,10 +640,10 @@ function createBot() {
     if (!ws.length) return render(ctx, '目前没有已停用的监听地址。', walletMenu);
     const kb = new InlineKeyboard();
     for (const w of ws) {
-      kb.text(`♻️ 恢复 ${shortAddr(w.address)}`, `wallet:restore:${w.id}`).row();
-      kb.text(`🗑 删除 ${shortAddr(w.address, 6, 4)}`, `wallet:delete:${w.id}`).row();
+      kb.text(`${t(lang, 'wallet.restore')} ${shortAddr(w.address)}`, `wallet:restore:${w.id}`).row();
+      kb.text(`${t(lang, 'wallet.delete')} ${shortAddr(w.address, 6, 4)}`, `wallet:delete:${w.id}`).row();
     }
-    kb.text('↩️ 返回监听管理', 'wallets').row().text('🏠 主菜单', 'home');
+    kb.text(t(lang, 'wallet.back_home'), 'wallets').row().text(t(lang, 'menu.home_short'), 'home');
     await render(ctx, '♻️ <b>已停用的监听地址</b>\n\n请选择恢复或申请永久删除。', kb);
   });
 
@@ -659,6 +663,7 @@ function createBot() {
   });
 
   bot.callbackQuery(/^wallet:delete:(\d+)$/, async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -672,9 +677,9 @@ function createBot() {
       `⚠️ <b>永久删除确认</b>\n\n地址：\n<code>${rows[0].address}</code>\n\n` +
       `只有没有交易、充值、补扫或告警记录的地址才允许删除。此操作不可撤销。`,
       new InlineKeyboard()
-        .text('⚠️ 确认永久删除', `wallet:delete:confirm:${rows[0].id}`).row()
-        .text('✖️ 取消', 'wallet:disabled').row()
-        .text('🏠 主菜单', 'home')
+        .text(t(lang, 'wallet.del_confirm'), `wallet:delete:confirm:${rows[0].id}`).row()
+        .text(t(lang, 'wallet.cancel'), 'wallet:disabled').row()
+        .text(t(lang, 'menu.home_short'), 'home')
     );
   });
 
@@ -742,6 +747,7 @@ function createBot() {
   });
 
   bot.callbackQuery(/^wallet:resource:(\d+)$/, async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -787,12 +793,12 @@ function createBot() {
         `━━━━━━━━━━━━━━━\n` +
         `ℹ️ 仅显示本系统已记录的链上交易`,
         new InlineKeyboard()
-          .text('📥 收款记录', `wallet:history:in:${w.id}`)
-          .text('📤 付款记录', `wallet:history:out:${w.id}`).row()
+          .text(t(lang, 'wallet.history_in'), `wallet:history:in:${w.id}`)
+          .text(t(lang, 'wallet.history_out'), `wallet:history:out:${w.id}`).row()
           .text('🔄 刷新', `wallet:resource:${w.id}`)
-          .text('🔎 其他地址', 'wallet:resources').row()
-          .text('↩️ 返回监听管理', 'wallets')
-          .text('🏠 主菜单', 'home')
+          .text(t(lang, 'wallet.other'), 'wallet:resources').row()
+          .text(t(lang, 'wallet.back_home'), 'wallets')
+          .text(t(lang, 'menu.home_short'), 'home')
       );
     } catch (e) {
       console.error('[wallet:resource]', e.message);
@@ -801,6 +807,7 @@ function createBot() {
   });
 
   bot.callbackQuery(/^wallet:history:choose:(\d+)$/, async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -814,14 +821,15 @@ function createBot() {
       ctx,
       `📜 <b>历史记录</b>\n\n监听地址：\n<code>${w.address}</code>\n\n请选择记录类型：`,
       new InlineKeyboard()
-        .text('📥 收款记录', `wallet:history:in:${w.id}`)
-        .text('📤 付款记录', `wallet:history:out:${w.id}`).row()
-        .text('↩️ 选择其他地址', 'wallet:history').row()
-        .text('🏠 主菜单', 'home')
+        .text(t(lang, 'wallet.history_in'), `wallet:history:in:${w.id}`)
+        .text(t(lang, 'wallet.history_out'), `wallet:history:out:${w.id}`).row()
+        .text(t(lang, 'wallet.choose_other'), 'wallet:history').row()
+        .text(t(lang, 'menu.home_short'), 'home')
     );
   });
 
   bot.callbackQuery(/^wallet:history:(in|out):(\d+)$/, async ctx => {
+    const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return render(ctx, '请先发送 /start', backHome);
@@ -856,11 +864,11 @@ function createBot() {
       `${direction === 'in' ? '📥' : '📤'} <b>${direction === 'in' ? '收款' : '付款'}记录（最近 10 笔）</b>\n\n` +
       `地址：<code>${address}</code>\n\n${body}`,
       new InlineKeyboard()
-        .text('📥 收款', `wallet:history:in:${walletId}`)
-        .text('📤 付款', `wallet:history:out:${walletId}`).row()
-        .text('🔎 地址详情', `wallet:resource:${walletId}`)
-        .text('↩️ 选择其他地址', 'wallet:history').row()
-        .text('🏠 主菜单', 'home')
+        .text(t(lang, 'wallet.in_short'), `wallet:history:in:${walletId}`)
+        .text(t(lang, 'wallet.out_short'), `wallet:history:out:${walletId}`).row()
+        .text(t(lang, 'wallet.detail'), `wallet:resource:${walletId}`)
+        .text(t(lang, 'wallet.choose_other'), 'wallet:history').row()
+        .text(t(lang, 'menu.home_short'), 'home')
     );
   });
 

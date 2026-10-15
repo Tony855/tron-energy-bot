@@ -54,4 +54,22 @@ module.exports = {
   'lang.changed':     '✅ 已切换为中文',
   'lang.current':     '当前语言：中文',
   'lang.cancel':      '取消',
+
+  // 子菜单按钮
+  'wallet.back_home':   '↩️ 返回监听管理',
+  'deposit.withdraw':   '📤 申请提现',
+  'balance.deposit':    '📥 充值',
+  'tx.refresh':         '🔄 刷新',
+  'wallet.rm_confirm':  '⚠️ 确认停用',
+  'wallet.del_confirm': '⚠️ 确认永久删除',
+  'wallet.delete':      '🗑 删除',
+  'wallet.restore':     '♻️ 恢复',
+  'wallet.history_in':  '📥 收款记录',
+  'wallet.history_out': '📤 付款记录',
+  'wallet.in_short':    '📥 收款',
+  'wallet.out_short':   '📤 付款',
+  'wallet.other':       '🔎 其他地址',
+  'wallet.detail':      '🔎 地址详情',
+  'wallet.choose_other':'↩️ 选择其他地址',
+  'wallet.cancel':      '✖️ 取消',
 };

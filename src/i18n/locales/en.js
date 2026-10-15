@@ -52,4 +52,22 @@ module.exports = {
   'lang.changed':     '✅ Language set to English',
   'lang.current':     'Current language: English',
   'lang.cancel':      'Cancel',
+
+  // Submenu buttons
+  'wallet.back_home':   '↩️ Back',
+  'deposit.withdraw':   '📤 Withdraw',
+  'balance.deposit':    '📥 Deposit',
+  'tx.refresh':         '🔄 Refresh',
+  'wallet.rm_confirm':  '⚠️ Confirm Disable',
+  'wallet.del_confirm': '⚠️ Confirm Delete',
+  'wallet.delete':      '🗑 Delete',
+  'wallet.restore':     '♻️ Restore',
+  'wallet.history_in':  '📥 Received',
+  'wallet.history_out': '📤 Sent',
+  'wallet.in_short':    '📥 In',
+  'wallet.out_short':   '📤 Out',
+  'wallet.other':       '🔎 Other',
+  'wallet.detail':      '🔎 Details',
+  'wallet.choose_other':'↩️ Other Address',
+  'wallet.cancel':      '✖️ Cancel',
 };
