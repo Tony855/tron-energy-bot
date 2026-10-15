@@ -1,0 +1,25 @@
+{
+  "name": "tron-energy-telegram-bot",
+  "version": "3.5.0",
+  "private": true,
+  "description": "TRON energy Telegram bot with event-driven webhook, isolated customers, Socket.IO, hardened installer and encrypted backups",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "for f in src/*.js src/providers/*.js test/*.js; do node --check \"$f\" || exit 1; done && bash -n scripts/backup.sh scripts/verify-backup.sh scripts/restore-drill.sh scripts/healthcheck.sh scripts/ops-monitor.sh install.sh upgrade-v2.9.sh upgrade-v3.0.sh upgrade-v3.1.sh upgrade-v3.2.sh upgrade-v3.3.sh upgrade-v3.4.sh",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "grammy": "^1.35.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.12.0",
+    "socket.io": "^4.8.1"
+  }
+}

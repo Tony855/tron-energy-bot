@@ -1,0 +1,22 @@
+[Unit]
+Description=TRON Energy Telegram Bot
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tronbot
+Group=tronbot
+WorkingDirectory=/opt/tron-energy-bot
+EnvironmentFile=/etc/tron-energy-bot.env
+ExecStart=/usr/bin/node /opt/tron-energy-bot/src/index.js
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/tron-energy-bot
+
+[Install]
+WantedBy=multi-user.target

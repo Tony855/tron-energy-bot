@@ -1,0 +1,13 @@
+[Unit]
+Description=TRON Energy Bot encrypted backup and optional offsite replication
+After=mysql.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/tron-energy-bot/scripts/backup.sh
+User=root
+Group=root
+UMask=0077
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

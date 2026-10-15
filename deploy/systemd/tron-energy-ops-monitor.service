@@ -1,0 +1,14 @@
+[Unit]
+Description=TRON Energy Bot operational health monitor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=ENV_FILE=/etc/tron-energy-bot.env
+Environment=SERVICE_NAME=tron-energy
+Environment=BACKUP_TIMER=tron-energy-backup.timer
+ExecStart=/opt/tron-energy-bot/scripts/ops-monitor.sh
+User=root
+Group=root
+UMask=0077

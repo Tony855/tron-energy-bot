@@ -1,0 +1,52 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.token
+secrets/
+credentials/
+
+# Dependencies and local caches
+node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Logs and runtime data
+*.log
+logs/
+tmp/
+temp/
+coverage/
+
+# Databases, dumps and backups
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql.gz
+*.bak
+*.backup
+*.old
+backups/
+backup/
+data/
+
+# Git and operating-system files
+.git/
+.DS_Store
+Thumbs.db
+
+# Local source backups and archives
+*.backup
+*.backup-*
+*.backup-history-*
+*.tar
+*.tar.gz
+*.zip

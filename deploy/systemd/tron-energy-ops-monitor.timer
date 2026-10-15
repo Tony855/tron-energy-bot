@@ -1,0 +1,11 @@
+[Unit]
+Description=Run TRON Energy Bot operational checks every five minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=45s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
