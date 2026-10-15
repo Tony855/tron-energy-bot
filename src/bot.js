@@ -477,19 +477,18 @@ function createBot() {
         .text('🏠 返回主菜单', 'home');
 
       await ctx.reply(
-        '🔎 <b>监听地址资源</b>                    🟢 正常查询\n' +
+        '<b>钱包资源概览</b>  ·  <i>查询成功</i>\n' +
         '━━━━━━━━━━━━━━━━━━\n' +
-        '📍 <b>监听地址</b>\n<code>' + w.address + '</code>\n\n' +
-        '💰 <b>资产余额</b>\n' +
-        '🔴 TRX：<b>' + r.trx + '</b> TRX\n' +
-        '🟢 USDT（TRC20）：<b>' + usdtBalance + '</b> USDT\n\n' +
-        '📊 <b>账户资源</b>\n' +
-        '⚡ Energy：' + r.energyUsed + ' / ' + r.energyLimit +
-        '（' + energyPct + '%）\n' + bar(energyPct) + '\n' +
-        '📶 Bandwidth：' + r.netUsed + ' / ' + r.netLimit +
-        '（' + netPct + '%）\n' + bar(netPct) + '\n\n' +
-        'ℹ️ 收款、付款记录来自本系统已记录的链上交易；' +
-        '事件源尚未推送的历史交易不会自动显示。',
+        '<b>钱包地址</b>\n<code>' + w.address + '</code>\n\n' +
+        '<b>资产余额</b>\n' +
+        'TRX       <b>' + r.trx + '</b> TRX\n' +
+        'USDT      <b>' + usdtBalance + '</b> USDT\n\n' +
+        '<b>链上资源</b>\n' +
+        'Energy     ' + r.energyUsed + ' / ' + r.energyLimit +
+        '  ·  ' + energyPct + '%\n' + bar(energyPct) + '\n' +
+        'Bandwidth  ' + r.netUsed + ' / ' + r.netLimit +
+        '  ·  ' + netPct + '%\n' + bar(netPct) + '\n\n' +
+        '<i>交易记录仅显示本系统已记录的链上事件。尚未由事件源推送的历史交易不会自动显示。</i>',
         { parse_mode: 'HTML', reply_markup: kb }
       );
     } catch (e) {
