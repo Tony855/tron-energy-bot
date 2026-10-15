@@ -25,10 +25,24 @@ trap 'rc=$?; printf "[ERROR] 安装失败（退出码 %s，第 %s 行）。请�
 [[ "${ID:-}" == debian || "${ID:-}" == ubuntu || " ${ID_LIKE:-} " == *debian* ]] || die "仅支持 Debian/Ubuntu 系统。"
 command -v systemctl >/dev/null || die "系统未使用 systemd，无法安装服务。"
 [[ ! -e "$ENV_FILE" ]] || die "发现已有配置 $ENV_FILE。为避免覆盖现有密钥，请使用对应版本 upgrade-v*.sh 或先人工备份处理。"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -e "$APP_DIR" ]] && find "$APP_DIR" -mindepth 1 -maxdepth 1 -print -quit | grep -q .; then
-  die "应用目录 $APP_DIR 已存在且非空。为避免覆盖旧版本，请使用升级脚本。"
+  APP_REAL="$(realpath -m "$APP_DIR")"
+  SOURCE_REAL="$(realpath -m "$SOURCE_DIR")"
+  if [[ "$APP_REAL" != "$SOURCE_REAL" ]]; then
+    die "应用目录 $APP_DIR 已存在且非空。为避免覆盖旧版本，请使用升级脚本。"
+  fi
 fi
 [[ ! -e "$SERVICE_FILE" ]] || die "systemd 服务 $SERVICE_FILE 已存在；请使用升级脚本。"
+# Refuse a fresh install if the database account already exists.
+# Never reset an existing database account password automatically.
+if command -v mysql >/dev/null 2>&1 &&
+   systemctl is-active --quiet mysql 2>/dev/null; then
+  if mysql --protocol=socket -Nse     "SELECT COUNT(*) FROM mysql.user WHERE User='${DB_USER}' AND Host='127.0.0.1';"     2>/dev/null | grep -qx '1'; then
+    die "数据库账号 ${DB_USER}@127.0.0.1 已存在。为避免影响现有服务，请勿重复全新安装；请使用对应版本升级脚本。"
+  fi
+fi
+
 
 # Interactive prompts can be preseeded with environment variables for unattended installs.
 ask(){ local var="$1" label="$2" default="${3:-}" value="${!1:-}"; if [[ -z "$value" ]]; then if [[ -n "$default" ]]; then read -r -p "$label [$default]: " value || true; value="${value:-$default}"; else read -r -p "$label: " value || true; fi; fi; printf -v "$var" '%s' "$value"; }
@@ -75,7 +89,9 @@ info "运行环境：Node $(node -v)，npm $(npm -v)"
 
 # Copy source without VCS state or host node_modules. Refuse accidental self-copy.
 install -d -m 0755 "$APP_DIR"
-if [[ "$PWD" != "$APP_DIR" ]]; then rsync -a --exclude='.git' --exclude='node_modules' --exclude='*.zip' ./ "$APP_DIR/"; fi
+if [[ "$(realpath -m "$SOURCE_DIR")" != "$(realpath -m "$APP_DIR")" ]]; then
+  rsync -a --exclude='.git' --exclude='node_modules' --exclude='*.zip' "$SOURCE_DIR/" "$APP_DIR/"
+fi
 id tronbot >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin tronbot
 chown -R tronbot:tronbot "$APP_DIR"
 info "安装生产依赖..."
@@ -115,7 +131,6 @@ mysql --protocol=socket < "$APP_DIR/sql/schema.sql"
 # Password charset is restricted above, so SQL interpolation cannot inject statements.
 mysql --protocol=socket <<SQL
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
-ALTER USER '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';
 FLUSH PRIVILEGES;
 SQL
@@ -182,11 +197,26 @@ if [[ ! -e /root/.config/tron-energy-bot/age-identity.txt ]]; then age-keygen -o
 chmod 0600 /root/.config/tron-energy-bot/age-identity.txt
 AGE_RECIPIENT="$(age-keygen -y /root/.config/tron-energy-bot/age-identity.txt)"
 python3 - "$ENV_FILE" "$AGE_RECIPIENT" <<'PY'
-import json, sys
+import json, os, sys, tempfile
 p, recipient = sys.argv[1:]
-s = open(p, encoding='utf-8').read()
-s += 'AGE_RECIPIENT=' + json.dumps(recipient) + '\n'
-open(p, 'w', encoding='utf-8').write(s)
+with open(p, encoding="utf-8") as f:
+    lines = [line for line in f if not line.startswith("AGE_RECIPIENT=")]
+lines.append("AGE_RECIPIENT=" + json.dumps(recipient) + "\n")
+fd, tmp = tempfile.mkstemp(prefix=".tron-energy-env-", dir=os.path.dirname(p))
+try:
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, p)
+    os.chmod(p, 0o600)
+except BaseException:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+    raise
 PY
 chmod 0600 "$ENV_FILE"
 install -d -o root -g root -m 0700 /var/backups/tron-energy-bot /var/lib/tron-energy-bot
@@ -197,7 +227,13 @@ for unit in tron-energy-backup.service tron-energy-backup.timer tron-energy-ops-
   if [[ -f "$APP_DIR/deploy/systemd/$unit" ]]; then install -o root -g root -m 0644 "$APP_DIR/deploy/systemd/$unit" "/etc/systemd/system/$unit"; fi
 done
 systemctl daemon-reload
-systemctl enable --now tron-energy-backup.timer tron-energy-ops-monitor.timer
+for unit in tron-energy-backup.timer tron-energy-ops-monitor.timer; do
+  if [[ -f "/etc/systemd/system/$unit" ]]; then
+    systemctl enable --now "$unit"
+  else
+    warn "未安装 $unit，跳过该定时器。"
+  fi
+done
 systemctl enable --now "$APP_NAME"
 
 info "等待健康检查..."
