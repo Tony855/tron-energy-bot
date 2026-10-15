@@ -9,6 +9,7 @@ function permissionFor(method, path) {
   if (p === '/api/login' || p === '/health' || p === '/api/health' || p === '/api/version' || p === '/') return 'public';
   if (/^\/api\/admins(?:\/|$)/.test(p)) return 'admin_manage';
   if (m === 'GET' && p === '/api/dashboard') return 'dashboard';
+  if (m === 'GET' && p === '/api/metrics')   return 'dashboard';
   if (m === 'GET' && /^\/api\/deposits\/\d+$/.test(p)) return 'finance_read';
   if (m === 'GET' && /^\/api\/withdrawals\/\d+$/.test(p)) return 'finance_read';
   if (m === 'GET' && ['/api/deposits','/api/users','/api/withdrawals','/api/audit-logs','/api/commissions','/api/reconciliation/summary','/api/reconciliation/snapshots','/api/ledger/export.csv','/api/finance-audit'].includes(p)) return 'finance_read';

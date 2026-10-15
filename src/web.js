@@ -21,9 +21,27 @@ const { canAccess, VALID_ROLES } = require('./rbac');
 const loginGuard = createSharedLoginGuard(pool, { maxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5), windowMs: Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000), lockMs: Number(process.env.LOGIN_LOCK_MS || 15 * 60 * 1000) });
 
 const app = express();
+
+// 列表接口统一 { items, total }；前端 table() 兼容两种输入。
+function listResp(rows) {
+  const arr = Array.isArray(rows) ? rows : [];
+  return { items: arr, total: arr.length };
+}
 app.set('trust proxy', 'loopback');
 require('./miniapp-mount')(app);
 app.use(helmet({ contentSecurityPolicy: false }));
+// access log（设置 ACCESS_LOG=0 可关闭）
+if (process.env.ACCESS_LOG !== '0') {
+  app.use((req, res, next) => {
+    const t0 = Date.now();
+    res.on('finish', () => {
+      const ms = Date.now() - t0;
+      const ip = String(req.ip || req.socket?.remoteAddress || '-');
+      console.log(`[access] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms ip=${ip}`);
+    });
+    next();
+  });
+}
 // 简单 IP 节流：同一个 IP 1 秒内重复请求直接 429（防暴力探测）
 const webhookThrottle = new Map();
 setInterval(() => {
@@ -204,7 +222,7 @@ async function login(){
   }
 }
 window.login = login;
-function table(rows,cols,actions){if(!rows.length)return '<p class="small">暂无数据</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+c[1]+'</th>').join('')+'<th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c[0]]??'')+'</td>').join('')+'<td>'+(actions?actions(r):'—')+'</td></tr>').join('')+'</tbody></table>'}
+function table(rows,cols,actions){if(rows&&!Array.isArray(rows)&&Array.isArray(rows.items))rows=rows.items;if(!rows||!rows.length)return '<p class="small">暂无数据</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+c[1]+'</th>').join('')+'<th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c[0]]??'')+'</td>').join('')+'<td>'+(actions?actions(r):'—')+'</td></tr>').join('')+'</tbody></table>'}
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 async function assignWallet(){try{let d=await api('/wallets/deposit-address',{method:'POST',body:JSON.stringify({user_id:Number(walletUserId.value),address:walletAddress.value.trim(),label:walletLabel.value.trim()})});walletMsg.textContent='已分配地址：'+d.address;walletAddress.value='';await load()}catch(e){walletMsg.textContent=e.message}}
 async function loadWallets(){try{let w=await api('/deposit-wallets');depositWallets.innerHTML=table(w,[['id','地址ID'],['user_id','用户ID'],['address','充值地址'],['label','标签'],['last_scanned_at','最后扫描']]);}catch(e){alert(e.message)}}
@@ -283,7 +301,7 @@ app.post('/api/login', async (req, res) => {
 // Super-admin only: provision named operator accounts; passwords are stored as bcrypt hashes.
 app.get('/api/admins', auth, async (req, res) => {
   const rows = await query('SELECT id,username,role,is_active,created_at FROM admin_users ORDER BY id ASC');
-  res.json(rows);
+  res.json(listResp(rows));
 });
 app.post('/api/admins', auth, async (req, res) => {
   const username = String(req.body?.username || '').trim();
@@ -359,6 +377,31 @@ app.get('/api/finance-audit', auth, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: '财务审计运行失败', detail: e.message });
   }
+});
+
+app.get('/api/metrics', auth, async (req, res) => {
+  let dbOk = false;
+  try { await pool.query('SELECT 1'); dbOk = true; } catch {}
+  let counts = {};
+  try {
+    const [u]  = await query('SELECT COUNT(*) AS n FROM users');
+    const [w]  = await query('SELECT COUNT(*) AS n FROM wallets WHERE is_active=1');
+    const [r]  = await query("SELECT COUNT(*) AS n FROM recharge_orders WHERE status='pending'");
+    const [wd] = await query("SELECT COUNT(*) AS n FROM withdrawal_requests WHERE status IN ('pending','approved')");
+    counts = { users: Number(u.n), wallets_active: Number(w.n), pending_recharges: Number(r.n), pending_withdrawals: Number(wd.n) };
+  } catch {}
+  let version = 'unknown';
+  try { version = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'VERSION'), 'utf8').trim(); } catch {}
+  res.json({
+    ok: dbOk,
+    db_ok: dbOk,
+    uptime_seconds: Math.round(process.uptime()),
+    memory_rss_bytes: process.memoryUsage().rss,
+    node_version: process.versions.node,
+    version,
+    counts,
+    checked_at: new Date().toISOString()
+  });
 });
 
 app.post('/api/deposit-address-pool/import', auth, async (req, res) => {
@@ -438,9 +481,9 @@ app.get('/api/deposits/:id', auth, async (req, res) => {
 
 app.get('/api/deposits', auth, async (req, res) => {
   const status = req.query.status || 'pending';
-  res.json(await query(
+  res.json(listResp(await query(
     `SELECT id,user_id,amount,currency,source,status,tx_hash,chain_verified_at,created_at FROM recharge_orders WHERE status=? ORDER BY id DESC LIMIT 200`, [status]
-  ));
+  )));
 });
 // V2.3: verify a TRON recharge against a confirmed on-chain TRC20 event.
 // Verification never credits the balance; the existing manual approval remains separate.
@@ -505,14 +548,14 @@ app.post('/api/deposits/:id/reject', auth, async (req, res) => {
   res.json({ ok: true });
 });
 app.get('/api/deposit-wallets', auth, async (req, res) => {
-  res.json(await query("SELECT id,user_id,address,label,last_scanned_at,created_at FROM wallets WHERE wallet_type='deposit' ORDER BY id DESC LIMIT 200"));
+  res.json(listResp(await query("SELECT id,user_id,address,label,last_scanned_at,created_at FROM wallets WHERE wallet_type='deposit' ORDER BY id DESC LIMIT 200")));
 });
 app.get('/api/audit-logs', auth, async (req, res) => {
-  res.json(await query('SELECT id,admin_username,action,target_type,target_id,details_json,created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 200'));
+  res.json(listResp(await query('SELECT id,admin_username,action,target_type,target_id,details_json,created_at FROM admin_audit_logs ORDER BY id DESC LIMIT 200')));
 });
 
 app.get('/api/users', auth, async (req, res) => {
-  res.json(await query('SELECT id,telegram_id,username,balance,created_at FROM users ORDER BY id DESC LIMIT 200'));
+  res.json(listResp(await query('SELECT id,telegram_id,username,balance,created_at FROM users ORDER BY id DESC LIMIT 200')));
 });
 app.get('/api/withdrawals/:id', auth, async (req, res) => {
   const id = Number(req.params.id);
@@ -532,12 +575,12 @@ app.get('/api/withdrawals', auth, async (req, res) => {
   const status = String(req.query.status || 'pending');
   const allowed = ['pending', 'approved', 'paid', 'rejected', 'cancelled'];
   if (!allowed.includes(status)) return res.status(400).json({ error: '无效状态' });
-  res.json(await query(
+  res.json(listResp(await query(
     `SELECT wr.id,wr.user_id,u.telegram_id,wr.amount,wr.currency,wr.destination_address,
             wr.status,wr.tx_hash,wr.reviewed_by,wr.reviewed_at,wr.note,wr.created_at
        FROM withdrawal_requests wr JOIN users u ON u.id=wr.user_id
       WHERE wr.status=? ORDER BY wr.id DESC LIMIT 200`, [status]
-  ));
+  )));
 });
 
 app.post('/api/withdrawals/:id/approve', auth, async (req, res) => {
@@ -724,7 +767,7 @@ app.post('/api/reconciliation/snapshot', auth, async (req, res) => {
 });
 
 app.get('/api/reconciliation/snapshots', auth, async (req, res) => {
-  res.json(await query('SELECT * FROM reconciliation_runs ORDER BY id DESC LIMIT 100'));
+  res.json(listResp(await query('SELECT * FROM reconciliation_runs ORDER BY id DESC LIMIT 100')));
 });
 
 app.get('/api/ledger/export.csv', auth, async (req, res) => {
@@ -767,8 +810,8 @@ app.post('/api/chain-backfill/run', auth, async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 app.get('/api/chain-backfill/status', auth, async (req, res) => {
-  res.json(await query(`SELECT s.id,s.wallet_id,w.address,s.from_timestamp,s.to_timestamp,s.status,s.pages_scanned,s.transfers_seen,s.last_error,s.started_by,s.created_at,s.updated_at
-    FROM chain_backfill_state s JOIN wallets w ON w.id=s.wallet_id ORDER BY s.updated_at DESC LIMIT 200`));
+  res.json(listResp(await query(`SELECT s.id,s.wallet_id,w.address,s.from_timestamp,s.to_timestamp,s.status,s.pages_scanned,s.transfers_seen,s.last_error,s.started_by,s.created_at,s.updated_at
+    FROM chain_backfill_state s JOIN wallets w ON w.id=s.wallet_id ORDER BY s.updated_at DESC LIMIT 200`)));
 });
 
 app.post('/api/chain-alerts/run', auth, async (req, res) => {
@@ -781,7 +824,7 @@ app.post('/api/chain-alerts/run', auth, async (req, res) => {
 app.get('/api/chain-alerts/recent', auth, async (req, res) => {
   const rows = await query(`SELECT id,alert_type,tx_hash,event_index,wallet_id,details_json,created_at
     FROM chain_alert_events ORDER BY id DESC LIMIT 100`);
-  res.json(rows.map(r => ({ ...r, details_json: typeof r.details_json === 'string' ? JSON.parse(r.details_json) : r.details_json })));
+  res.json(listResp(rows.map(r => ({ ...r, details_json: typeof r.details_json === 'string' ? JSON.parse(r.details_json) : r.details_json }))));
 });
 
 app.get('/api/chain-audit', auth, async (req, res) => {
@@ -828,11 +871,19 @@ app.get('/api/commissions', auth, async (req, res) => {
             rc.amount,rc.percent,rc.status,rc.created_at
        FROM referral_commissions rc ORDER BY rc.id DESC LIMIT 200`
   );
-  res.json(rows);
+  res.json(listResp(rows));
 });
 
 app.get('/api/energy-orders', auth, async (req, res) => {
-  res.json(await query('SELECT id,user_id,receiver_address,energy_amount,quoted_price,status,created_at FROM energy_orders ORDER BY id DESC LIMIT 200'));
+  res.json(listResp(await query('SELECT id,user_id,receiver_address,energy_amount,quoted_price,status,created_at FROM energy_orders ORDER BY id DESC LIMIT 200')));
+});
+
+// [error-handler] 全局错误兜底：不返回栈信息
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  console.error('[unhandled]', req.method, req.originalUrl, err && err.message);
+  const code = err && Number(err.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+  res.status(code).json({ error: '服务器内部错误，请稍后重试或查看日志' });
 });
 
 module.exports = app;
