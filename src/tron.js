@@ -65,30 +65,40 @@ async function getAccount(address) {
 
   const accountResource = account.account_resource || {};
 
+  // 只要资源接口返回了任一已知字段，就认为查询成功。
+  // 未质押 TRX 的地址，EnergyLimit/NetLimit 等字段本就不存在，
+  // 此时真实值是 0，而不是“未知”。只有接口整体失败时才返回 null。
+  const hasResourceData = resources && (
+    resources.EnergyLimit != null ||
+    resources.EnergyUsed != null ||
+    resources.NetLimit != null ||
+    resources.NetUsed != null ||
+    resources.freeNetLimit != null ||
+    resources.freeNetUsed != null
+  );
+
+  const pickNumber = (...candidates) => {
+    for (const v of candidates) {
+      if (v == null || v === '') continue;
+      const n = Number(v);
+      if (Number.isFinite(n)) return n;
+    }
+    return hasResourceData ? 0 : null;
+  };
+
   return {
     address,
     trx: (Number(account.balance || 0) / 1e6).toFixed(6),
 
-    // Energy 额度来自账户自己的资源上限，不使用全网参数。
-    // 未返回的字段使用 null，避免把未知数据伪装成 0。
-    energyLimit: resources.EnergyLimit == null
-      ? null : Number(resources.EnergyLimit),
-    energyUsed: resources.EnergyUsed != null
-      ? Number(resources.EnergyUsed)
-      : accountResource.energy_usage != null
-        ? Number(accountResource.energy_usage) : null,
+    // Energy 来自账户自身的质押资源；未质押则为 0（不是未知）。
+    energyLimit: pickNumber(resources.EnergyLimit),
+    energyUsed: pickNumber(resources.EnergyUsed, accountResource.energy_usage),
 
-    // 质押带宽与免费带宽分别返回。
-    netLimit: resources.NetLimit == null
-      ? null : Number(resources.NetLimit),
-    netUsed: resources.NetUsed != null
-      ? Number(resources.NetUsed)
-      : account.net_usage != null
-        ? Number(account.net_usage) : null,
-    freeNetLimit: resources.freeNetLimit == null
-      ? null : Number(resources.freeNetLimit),
-    freeNetUsed: account.free_net_usage == null
-      ? null : Number(account.free_net_usage)
+    // 带宽 = 质押带宽 + 免费带宽，分开返回。
+    netLimit: pickNumber(resources.NetLimit),
+    netUsed: pickNumber(resources.NetUsed, account.net_usage),
+    freeNetLimit: pickNumber(resources.freeNetLimit),
+    freeNetUsed: pickNumber(account.free_net_usage)
   };
 }
 

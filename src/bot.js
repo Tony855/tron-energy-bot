@@ -726,15 +726,15 @@ function createBot() {
         getTrc20Balance(w.address).catch(() => null)
       ]);
       const pct = (u, l) => {
-        const lu = Number(l), uu = Number(u);
-        if (!Number.isFinite(lu) || lu <= 0 || !Number.isFinite(uu) || uu < 0) return null;
+        const lu = Number(l) || 0, uu = Number(u) || 0;
+        if (lu <= 0 || uu < 0) return 0;
         return Math.min(100, Math.round(uu * 100 / lu));
       };
       const bar = n => n === null ? '资源数据暂不可用'
         : '▰'.repeat(Math.round(n / 10)) + '▱'.repeat(10 - Math.round(n / 10));
       const ep = pct(r.energyUsed, r.energyLimit);
       const np = pct(r.netUsed, r.netLimit);
-      const fmt = n => n === null ? '暂无数据' : `${n}%`;
+      const fmt = n => `${Number(n) || 0}%`;
 
       await render(
         ctx,
