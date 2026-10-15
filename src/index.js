@@ -17,19 +17,16 @@ async function main() {
   initSocket(server);
   const bot = createBot();
   if (bot) {
-    await bot.api.setMyCommands([
-      { command: 'start',        description: '🏠 主菜单' },
-      { command: 'balance',      description: '💰 我的余额' },
-      { command: 'wallets',      description: '🎧 监听管理' },
-      { command: 'addwallet',    description: '➕ 添加监听地址' },
-      { command: 'deposit',      description: '📥 获取充值地址' },
-      { command: 'withdraw',     description: '📤 提交提现申请' },
-      { command: 'transactions', description: '🧾 最近交易' },
-      { command: 'status',       description: '📡 监听状态' },
-      { command: 'report',       description: '📊 今日简报' },
-      { command: 'referral',     description: '🎁 邀请好友' },
-      { command: 'help',         description: '❔ 使用帮助' }
-    ]);
+    const { t, SUPPORTED } = require('./i18n');
+    const CMD_LIST = ['start','balance','wallets','addwallet','deposit','withdraw','transactions','status','report','referral','help','language'];
+    const buildCommands = (lang) => CMD_LIST.map(c => ({ command: c, description: t(lang, 'cmd.' + c) }));
+    for (const lang of SUPPORTED) {
+      try {
+        await bot.api.setMyCommands(buildCommands(lang), { language_code: lang });
+      } catch (e) {
+        console.error(`[bot] setMyCommands(${lang}) failed:`, e.message);
+      }
+    }
     await bot.start();
     console.log('[bot] Telegram bot started');
   }

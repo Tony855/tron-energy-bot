@@ -6,6 +6,7 @@ const { query, pool } = require('./db');
 const {
   validateAddress, getAccount, getTrc20Balance, getConfirmedTrc20Transfer
 } = require('./tron');
+const { t, langOf, resolveLang, SUPPORTED, DEFAULT_LANG } = require('./i18n');
 const { assignNextDepositAddress } = require('./depositPool');
 const { sendTelegramMessage } = require('./notifier');
 const { creditRecharge } = require('./ledger');
@@ -326,6 +327,30 @@ function createBot() {
       backHome()
     );
   };
+
+  bot.command('language', async ctx => {
+    const lang = await langOf(ctx, query);
+    const kb = new InlineKeyboard()
+      .text('🇨🇳 中文', 'lang:zh-CN')
+      .text('🇬🇧 English', 'lang:en').row()
+      .text(t(lang, 'lang.cancel'), 'home');
+    await render(ctx, t(lang, 'lang.title'), kb);
+  });
+
+  bot.callbackQuery(/^lang:(zh-CN|en)$/, async ctx => {
+    const target = ctx.match[1];
+    if (!SUPPORTED.includes(target)) {
+      await ctx.answerCallbackQuery({ text: 'Unsupported language' });
+      return;
+    }
+    await ctx.answerCallbackQuery();
+    const uid = await userIdFor(ctx.from.id);
+    if (uid) {
+      try { await query('UPDATE users SET language=? WHERE id=?', [target, uid]); }
+      catch (e) { console.error('[lang] update failed:', e.message); }
+    }
+    await render(ctx, t(target, 'lang.changed'), backHome());
+  });
 
   bot.command('start', showHome);
   bot.command('help', ctx => ctx.reply(
