@@ -113,7 +113,41 @@ table{border-collapse:collapse;width:100%;min-width:560px}td,th{text-align:left;
 <script>
 let token='';
 async function api(path,opts={}){let r=await fetch('/api'+path,{...opts,headers:{'content-type':'application/json','authorization':'Bearer '+token,...(opts.headers||{})}});let d=await r.json();if(!r.ok)throw Error(d.error||'请求失败');return d}
-async function login(){try{let r=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:username.value,password:password.value})});let d=await r.json();if(!r.ok)throw Error(d.error);token=d.token;document.getElementById('login').style.display='none';document.getElementById('app').style.display='block';await load()}catch(e){msg.textContent=e.message}}
+async function login(){
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const message = document.getElementById('msg');
+  const button = document.querySelector('#login button');
+  if (!usernameInput || !passwordInput || !message) {
+    console.error('[login] 登录页面元素缺失');
+    return;
+  }
+  message.textContent = '';
+  if (button) button.disabled = true;
+  try {
+    const r = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        username: usernameInput.value.trim(),
+        password: passwordInput.value
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) throw Error(d.error || ('登录失败，HTTP ' + r.status));
+    if (!d.token) throw Error('登录接口未返回令牌');
+    token = d.token;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await load();
+  } catch (e) {
+    message.textContent = e.message || '登录失败，请检查网络或服务器日志';
+    console.error('[login]', e);
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+window.login = login;
 function table(rows,cols,actions){if(!rows.length)return '<p class="small">暂无数据</p>';return '<table><thead><tr>'+cols.map(c=>'<th>'+c[1]+'</th>').join('')+'<th>操作</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c[0]]??'')+'</td>').join('')+'<td>'+(actions?actions(r):'—')+'</td></tr>').join('')+'</tbody></table>'}
 function esc(v){return String(v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 async function assignWallet(){try{let d=await api('/wallets/deposit-address',{method:'POST',body:JSON.stringify({user_id:Number(walletUserId.value),address:walletAddress.value.trim(),label:walletLabel.value.trim()})});walletMsg.textContent='已分配地址：'+d.address;walletAddress.value='';await load()}catch(e){walletMsg.textContent=e.message}}
@@ -122,7 +156,7 @@ async function importPool(){try{let d=await api('/deposit-address-pool/import',{
 async function loadPool(){try{let d=await api('/deposit-address-pool');poolRows.innerHTML='<p class="small">可用地址：'+d.available_count+'，已分配：'+d.assigned_count+'，禁用：'+d.disabled_count+'</p>'+table(d.rows,[['id','池ID'],['address','地址'],['status','状态'],['source_label','来源'],['assigned_user_id','用户ID'],['created_at','导入时间']]);}catch(e){poolRows.textContent=e.message}}
 async function assignFromPool(id){if(!confirm('为用户 '+id+' 分配下一个专属充值地址？'))return;try{let d=await api('/deposit-address-pool/assign/'+id,{method:'POST'});alert('充值地址：'+d.address);await load()}catch(e){alert(e.message)}}
 async function createRecharge(){try{let d=await api('/deposits/manual',{method:'POST',body:JSON.stringify({user_id:Number(rechargeUserId.value),amount:rechargeAmount.value,note:rechargeNote.value})});rechargeMsg.textContent='已创建待审核订单 #'+d.id;await load()}catch(e){rechargeMsg.textContent=e.message}}
-async function verifyDeposit(id){if(!confirm('从 TRON 主网核对交易、USDT 合约、收款地址和金额？核验不会自动入账。'))return;try{const d=await api('/deposits/'+id+'/verify-chain',{method:'POST'});alert('链上核验通过，但尚未入账。\n交易：'+d.tx_hash+'\n金额：'+d.amount+' USDT');await load()}catch(e){alert('链上核验未通过：'+e.message)}}
+async function verifyDeposit(id){if(!confirm('从 TRON 主网核对交易、USDT 合约、收款地址和金额？核验不会自动入账。'))return;try{const d=await api('/deposits/'+id+'/verify-chain',{method:'POST'});alert('链上核验通过，但尚未入账。\\n交易：'+d.tx_hash+'\\n金额：'+d.amount+' USDT');await load()}catch(e){alert('链上核验未通过：'+e.message)}}
 async function approve(id){if(!confirm('确认审核并入账？'))return;try{await api('/deposits/'+id+'/approve',{method:'POST'});await load()}catch(e){alert(e.message)}}
 async function reject(id){let note=prompt('拒绝原因');if(note===null)return;try{await api('/deposits/'+id+'/reject',{method:'POST',body:JSON.stringify({note})});await load()}catch(e){alert(e.message)}}
 async function approveWithdrawal(id){if(!confirm('批准提现并从可用余额扣款？链上转账仍需人工执行。'))return;try{await api('/withdrawals/'+id+'/approve',{method:'POST'});await loadWithdrawals()}catch(e){alert(e.message)}}
