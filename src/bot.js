@@ -254,6 +254,7 @@ ${t(lang, 'home.security')}`,
   };
 
   const showStatus = async ctx => {
+    const lang = await langOf(ctx, query);
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return ctx.reply('请先发送 /start');
     const [w] = await query(
@@ -268,11 +269,11 @@ ${t(lang, 'home.security')}`,
     );
     await render(
       ctx,
-      `📡 <b>监听状态</b>\n\n` +
-      `启用地址：${w.count}\n` +
-      `最近事件：${w.last_scan || '暂无记录'}\n` +
-      `近 24 小时交易：${tx.count}\n\n` +
-      `实时发现依赖管理员配置的第三方 TRON 事件推送服务。`,
+      `${t(lang, 'content.status.title')}\n\n` +
+      `${t(lang, 'content.status.addr', { count: w.count })}\n` +
+      `${t(lang, 'content.status.last', { last: w.last_scan || '—' })}\n` +
+      `${t(lang, 'content.status.24h', { count: tx.count })}\n\n` +
+      `${t(lang, 'content.status.note')}`,
       backHome
     );
   };
@@ -302,16 +303,18 @@ ${t(lang, 'home.security')}`,
   };
 
   const showReferral = async ctx => {
+    const lang = await langOf(ctx, query);
     const rows = await query('SELECT id,referral_code FROM users WHERE telegram_id=?', [ctx.from.id]);
     if (!rows.length) return ctx.reply('请先发送 /start');
     const botName = (await bot.api.getMe()).username;
     const [stats] = await query('SELECT COUNT(*) c FROM users WHERE referred_by=?', [rows[0].id]);
     await render(
       ctx,
-      `🎁 <b>邀请好友</b>\n\n` +
-      `已邀请：${stats.c} 人\n` +
-      `返佣比例：${process.env.REFERRAL_COMMISSION_PERCENT || 3}%（以系统规则为准）\n\n` +
-      `你的专属链接：\n<code>https://t.me/${botName}?start=${rows[0].referral_code}</code>`,
+      `${t(lang, 'content.referral.title')}\n\n` +
+      `${t(lang, 'content.referral.count', { count: stats.c })}\n` +
+      `${t(lang, 'content.referral.percent', { percent: process.env.REFERRAL_COMMISSION_PERCENT || 3 })}\n\n` +
+      `${t(lang, 'content.referral.link')}\n` +
+      `<code>https://t.me/${botName}?start=${rows[0].referral_code}</code>`,
       backHome
     );
   };
@@ -319,9 +322,9 @@ ${t(lang, 'home.security')}`,
   const showEnergy = async ctx => {
     await render(
       ctx,
-      '⚡ <b>能量服务</b>\n\n' +
-      '真实能量供应商尚未接入，因此目前不能报价、扣款或声称委托成功。\n' +
-      '供应商接入后此处将提供能量报价、时长选择、确认订单和订单状态。',
+      t(lang, 'content.energy.title') + '\n\n' +
+      t(lang, 'content.energy.body1') + '\n' +
+      t(lang, 'content.energy.body2'),
       backHome
     );
   };
