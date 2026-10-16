@@ -661,7 +661,7 @@ ${t(lang, 'home.security')}`,
       kb.text(`${t(lang, 'wallet.delete')} ${shortAddr(w.address, 6, 4)}`, `wallet:delete:${w.id}`).row();
     }
     kb.text(t(lang, 'wallet.back_home'), 'wallets').row().text(t(lang, 'menu.home_short'), 'home');
-    await render(ctx, '♻️ <b>已停用的监听地址</b>\n\n请选择恢复或申请永久删除。', kb);
+    await render(ctx, t(lang, 'wallet.disabled_title'), kb);
   });
 
   bot.callbackQuery(/^wallet:restore:(\d+)$/, async ctx => {
@@ -819,7 +819,7 @@ ${t(lang, 'home.security')}`,
       );
     } catch (e) {
       console.error('[wallet:resource]', e.message);
-      await render(ctx, '查询失败，请检查 TRON API 配置或网络连接。', walletMenu);
+      await render(ctx, t(lang, 'wallet.query_fail'), walletMenu);
     }
   });
 
@@ -968,26 +968,32 @@ ${t(lang, 'home.security')}`,
   });
 
   bot.command('pendingrecharges', async ctx => {
+    const lang = await langOf(ctx, query);
     if (!await requireAdmin(ctx)) return;
     const rows = await query(
       "SELECT id,user_id,amount,tx_hash,event_index,chain_verified_at,created_at FROM recharge_orders WHERE status='pending' ORDER BY id ASC LIMIT 30"
     );
     await ctx.reply(rows.length
-      ? '待审核充值（最多 30 笔）：\n' + rows.map(r =>
-          `#${r.id} 用户#${r.user_id} ${r.amount} USDT\nTx: ${r.tx_hash || '无链上交易'} / 事件 ${r.event_index}\n链上核验：${r.chain_verified_at || '未核验'}`
+      ? t(lang, 'admin.pending_title') + '\n' + rows.map(r =>
+          t(lang, 'admin.pending_item', {
+            id: r.id, uid: r.user_id, amount: r.amount,
+            tx: r.tx_hash || t(lang, 'admin.no_chain_tx'), ev: r.event_index,
+            ver: r.chain_verified_at || '—'
+          })
         ).join('\n\n')
-      : '当前没有待审核充值。');
+      : t(lang, 'admin.pending_empty'));
   });
 
   bot.command('verifyrecharge', async ctx => {
+    const lang = await langOf(ctx, query);
     if (!await requireAdmin(ctx)) return;
     const id = Number(String(ctx.match || '').trim());
-    if (!Number.isSafeInteger(id) || id <= 0) return ctx.reply('用法：/verifyrecharge 充值订单ID');
+    if (!Number.isSafeInteger(id) || id <= 0) return ctx.reply(t(lang, 'admin.verify_usage'));
     const rows = await query(
       "SELECT r.*,w.address FROM recharge_orders r JOIN wallets w ON w.id=r.wallet_id WHERE r.id=? AND r.status='pending' AND r.source='tron'",
       [id]
     );
-    if (!rows.length) return ctx.reply('未找到对应的待审核链上充值订单。');
+    if (!rows.length) return ctx.reply(t(lang, 'admin.verify_notfound'));
     const order = rows[0];
     try {
       const transfers = await getConfirmedTrc20Transfer(order.tx_hash);
@@ -1003,50 +1009,52 @@ ${t(lang, 'home.security')}`,
           decimals: Number(process.env.TRON_USDT_DECIMALS || 6)
         }
       );
-      if (verified.tx_hash !== String(order.tx_hash).toLowerCase()) throw new Error('核验交易哈希不一致');
+      if (verified.tx_hash !== String(order.tx_hash).toLowerCase()) throw new Error(t(lang, 'admin.verify_hash_mismatch'));
       await query(
         "UPDATE recharge_orders SET chain_verified_at=NOW(),chain_verified_json=? WHERE id=? AND status='pending'",
         [JSON.stringify(verified), id]
       );
       await ctx.reply(
-        `充值 #${id} 链上核验通过。\n金额：${order.amount} USDT\n地址：${order.address}\n现在可执行 /approverecharge ${id} 完成入账。`
+        t(lang, 'admin.verify_ok', { id, amount: order.amount, addr: order.address })
       );
     } catch (e) {
-      await ctx.reply(`核验失败，未入账：${e.message}`);
+      await ctx.reply(t(lang, 'admin.verify_fail', { msg: e.message }));
     }
   });
 
   bot.command('approverecharge', async ctx => {
+    const lang = await langOf(ctx, query);
     if (!await requireAdmin(ctx)) return;
     const id = Number(String(ctx.match || '').trim());
-    if (!Number.isSafeInteger(id) || id <= 0) return ctx.reply('用法：/approverecharge 充值订单ID');
+    if (!Number.isSafeInteger(id) || id <= 0) return ctx.reply(t(lang, 'admin.approve_usage'));
     try {
       const result = await creditRecharge(id, `telegram:${ctx.from.id}`);
-      if (!result.credited) return ctx.reply(`订单 #${id} 已处理或未入账（${result.reason || 'unknown'}）。`);
-      await ctx.reply(`充值 #${id} 已完成入账：${result.amount} USDT，用户 #${result.userId}。`);
+      if (!result.credited) return ctx.reply(t(lang, 'admin.approve_already', { id, reason: result.reason || 'unknown' }));
+      await ctx.reply(t(lang, 'admin.approve_done', { id, amount: result.amount, uid: result.userId }));
       const user = await query('SELECT telegram_id,balance FROM users WHERE id=?', [result.userId]);
       if (user[0]) {
         await sendTelegramMessage(
           user[0].telegram_id,
-          `充值已审核通过\n订单：#${id}\n金额：${result.amount} USDT\n当前余额：${user[0].balance} USDT`
+          t(lang, 'admin.user_notify', { id, amount: result.amount, balance: user[0].balance })
         );
       }
     } catch (e) {
-      await ctx.reply(`入账失败：${e.message}\n请勿重复手工加余额。`);
+      await ctx.reply(t(lang, 'admin.approve_fail', { msg: e.message }));
     }
   });
 
   bot.command('rejectrecharge', async ctx => {
+    const lang = await langOf(ctx, query);
     if (!await requireAdmin(ctx)) return;
     const parts = String(ctx.match || '').trim().split(/\s+/);
     const id = Number(parts.shift());
     const reason = parts.join(' ').slice(0, 400);
-    if (!Number.isSafeInteger(id) || id <= 0 || !reason) return ctx.reply('用法：/rejectrecharge 充值订单ID 拒绝原因');
+    if (!Number.isSafeInteger(id) || id <= 0 || !reason) return ctx.reply(t(lang, 'admin.reject_usage'));
     const [result] = await pool.execute(
       "UPDATE recharge_orders SET status='rejected',note=?,reviewed_by=?,reviewed_at=NOW() WHERE id=? AND status='pending'",
       [reason, `telegram:${ctx.from.id}`, id]
     );
-    await ctx.reply(result.affectedRows ? `充值 #${id} 已拒绝。` : '订单不存在或已处理。');
+    await ctx.reply(result.affectedRows ? t(lang, 'admin.reject_ok', { id }) : t(lang, 'admin.reject_notfound'));
   });
 
   bot.catch(err => console.error('[bot] error:', err.stack || err.message));
