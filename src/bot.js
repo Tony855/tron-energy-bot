@@ -440,7 +440,7 @@ ${t(lang, 'home.security')}`,
       pendingInput.set(ctx.from.id, 'addwallet');
       return render(
         ctx,
-        '➕ <b>添加只读监听地址</b>\n\n请直接发送 TRON 主网公开地址（T 开头），不要发送私钥。\n发送 /cancel 或点击按钮可取消。',
+        t(lang, 'add.title_cmd'),
         cancelMenu
       );
     }
@@ -458,14 +458,14 @@ ${t(lang, 'home.security')}`,
       pendingInput.delete(ctx.from.id);
       return render(
         ctx,
-        '✅ 地址已添加到你的独立只读监控列表。\n\n地址、交易与通知仅关联你的账户。',
+        t(lang, 'add.ok_cmd'),
         walletMenu
       );
     } catch (e) {
       pendingInput.delete(ctx.from.id);
-      if (e.code === 'ER_DUP_ENTRY') return render(ctx, '该地址已存在，请勿重复添加。', walletMenu);
+      if (e.code === 'ER_DUP_ENTRY') return render(ctx, t(lang, 'add.dup'), walletMenu);
       console.error('[addwallet]', e.message);
-      return render(ctx, '添加失败，请稍后重试。', walletMenu);
+      return render(ctx, t(lang, 'add.failed'), walletMenu);
     }
   });
 
@@ -570,7 +570,7 @@ ${t(lang, 'home.security')}`,
     await ctx.answerCallbackQuery();
     await render(
       ctx,
-      '➕ <b>添加监听地址</b>\n\n请发送 TRON 主网公开地址（T 开头）。\n本功能只读监控，不会要求私钥。',
+      t(lang, 'add.title_btn'),
       cancelMenu
     );
   });
@@ -897,7 +897,7 @@ ${t(lang, 'home.security')}`,
 
     if (action === 'addwallet') {
       if (!validateAddress(text)) {
-        return render(ctx, '地址格式不正确，请重新发送 T 开头的有效 TRON 主网地址。', cancelMenu);
+        return render(ctx, t(lang, 'add.bad_addr'), cancelMenu);
       }
       pendingInput.delete(ctx.from.id);
       const uid = await userIdFor(ctx.from.id);
@@ -907,11 +907,11 @@ ${t(lang, 'home.security')}`,
           "INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')",
           [uid, text]
         );
-        await render(ctx, '✅ 已添加到你的只读监听地址。', walletMenu);
+        await render(ctx, t(lang, 'add.ok_btn'), walletMenu);
       } catch (e) {
         await render(
           ctx,
-          e.code === 'ER_DUP_ENTRY' ? '该地址已存在，请勿重复添加。' : '添加失败，请稍后重试。',
+          e.code === 'ER_DUP_ENTRY' ? t(lang, 'add.dup') : t(lang, 'add.failed'),
           walletMenu
         );
       }
