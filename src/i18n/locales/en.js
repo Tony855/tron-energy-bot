@@ -49,6 +49,54 @@ module.exports = {
   'home.prompt':       'Choose a service below.',
   'home.security':     '🔐 Never share mnemonics, private keys, or codes.',
 
+
+  // Content pages
+  'content.deposit.title': '📥 <b>Your Deposit Address</b>',
+  'content.deposit.net':   'Network: TRON mainnet\nToken: USDT-TRC20',
+  'content.deposit.warn':  '⚠️ Only send USDT on the specified contract. Chain verification and manual review still required.',
+
+  'content.withdraw.title': '📤 <b>Withdraw</b>',
+  'content.withdraw.howto': 'Send: amount <space> TRON address',
+  'content.withdraw.ex':    'Example: <code>10 Txxxx...</code>',
+  'content.withdraw.note':  'Submitted for admin review; no automatic on-chain transfer.',
+
+  'content.tx.title': '🧾 <b>Recent Transactions (max 10)</b>',
+  'content.tx.empty': 'No transactions yet. New ones appear only when the event provider pushes them.',
+
+  'content.status.title': '📡 <b>Monitoring</b>',
+  'content.status.addr':  'Active addresses: {count}',
+  'content.status.last':  'Last event: {last}',
+  'content.status.24h':   'Transactions in 24h: {count}',
+  'content.status.note':  'Real-time detection depends on a configured TRON event push service.',
+
+  'content.report.title':  '📊 <b>Daily Report (UTC)</b>',
+  'content.report.addr':   'Monitored addresses: {count}',
+  'content.report.events': 'Transaction events: {count}',
+  'content.report.trx':    'TRX total: {amount} TRX',
+  'content.report.usdt':   'USDT total: {amount} USDT',
+  'content.report.note':   'Both incoming and outgoing are counted.',
+
+  'content.referral.title':   '🎁 <b>Invite Friends</b>',
+  'content.referral.count':   'Invited: {count}',
+  'content.referral.percent': 'Commission: {percent}% (per system rules)',
+  'content.referral.link':    'Your referral link:',
+
+  'content.energy.title': '⚡ <b>Energy Service</b>',
+  'content.energy.body1': 'No real energy supplier is connected. No quotes, charges, or delegation success claims yet.',
+  'content.energy.body2': 'Once integrated, quotes, durations, order confirmation, and status will appear here.',
+
+  'content.help.title': '❓ <b>Help</b>',
+  'content.help.l1': '🎧 Monitoring: watch public addresses read-only',
+  'content.help.l2': '📥 Deposit: get your dedicated address',
+  'content.help.l3': '📤 Withdraw: submit a request for admin review',
+  'content.help.l4': '🧾 Transactions: view recognized on-chain events',
+  'content.help.l5': '📡 Status: recent event reception',
+  'content.help.security': '🔐 Never share mnemonics, private keys, or codes.',
+
+  'content.balance.title':  '💰 <b>My Balance</b>',
+  'content.balance.amount': 'Balance: <b>{balance} USDT</b>',
+  'content.balance.note':   'Withdrawals need admin approval.',
+
   'lang.title':       '🌐 <b>Language</b>\n\nChoose your language:',
   'lang.changed':     '✅ Language set to English',
   'lang.current':     'Current language: English',

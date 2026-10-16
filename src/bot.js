@@ -327,15 +327,16 @@ ${t(lang, 'home.security')}`,
   };
 
   const showHelp = async ctx => {
+    const lang = await langOf(ctx, query);
     await render(
       ctx,
-      '❓ <b>帮助中心</b>\n\n' +
-      '🎧 监听管理：绑定公开地址进行只读监控\n' +
-      '📥 充值：获取系统分配的专属地址\n' +
-      '📤 提现：提交申请，等待管理员审核\n' +
-      '🧾 交易记录：查看已识别的链上事件\n' +
-      '📡 监听状态：查看最近事件接收情况\n\n' +
-      '🔐 永远不要向机器人发送助记词、私钥或验证码。',
+      t(lang, 'content.help.title') + '\n\n' +
+      t(lang, 'content.help.l1') + '\n' +
+      t(lang, 'content.help.l2') + '\n' +
+      t(lang, 'content.help.l3') + '\n' +
+      t(lang, 'content.help.l4') + '\n' +
+      t(lang, 'content.help.l5') + '\n\n' +
+      t(lang, 'content.help.security'),
       backHome
     );
   };
