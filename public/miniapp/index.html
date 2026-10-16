@@ -298,7 +298,7 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
   <template v-if="tab==='orders'">
     <div v-if="!orders.length" class="empty">{{ tr("emptyOrders") }}</div>
     <div class="list"><div class="item" v-for="o in orders" :key="o.id">
-      <div class="itemtop"><strong>订单 #{{ o.id }}</strong><span class="tag">{{ statusText(o.status) }}</span></div>
+      <div class="itemtop"><strong>{{ tr("orderPrefix") }}{{ o.id }}</strong><span class="tag">{{ statusText(o.status) }}</span></div>
       <div class="address">{{ tr("orderReceiver") }}{{ o.receiver_address }}</div>
       <div class="sub" style="margin-top:8px">{{ o.energy_amount }} {{ tr("orderEnergy") }} · {{ o.duration_minutes }} {{ tr("orderDuration") }}</div>
       <div class="sub" style="margin-top:5px">{{ tr("orderQuote") }}{{ o.quoted_price }} {{ o.currency }}</div>
@@ -364,6 +364,7 @@ const I18N = {
     addressLabel: '地址：',
     txHashLabel: '交易哈希：',
     orderNote: '当前页面只展示订单，不会发起购买或扣款。',
+    orderPrefix: '订单 #',
     wallet: '钱包',
   },
   'en': {
@@ -418,6 +419,7 @@ const I18N = {
     addressLabel: 'Address: ',
     txHashLabel: 'Tx: ',
     orderNote: 'This page only displays orders; no purchase or charge is made here.',
+    orderPrefix: 'Order #',
     wallet: 'Wallet',
   }
 };

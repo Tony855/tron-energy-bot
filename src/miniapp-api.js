@@ -10,9 +10,22 @@ const router = express.Router();
 const MAX_AGE_SECONDS = 3600;
 
 function verifyInitData(initData) {
-  if (!process.env.BOT_TOKEN) throw new Error('BOT_TOKEN 未配置');
+  // 先尽力从原始 initData 里推断语言，用于选择错误文案（此步未验证签名，仅用于本地展示）
+  let lang = 'zh-CN';
+  try {
+    if (typeof initData === 'string' && initData) {
+      const rawUser = new URLSearchParams(initData).get('user');
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        lang = normalizeLang(u && u.language_code) || 'zh-CN';
+      }
+    }
+  } catch {}
+  const err = (zh, en) => Object.assign(new Error(lang === 'en' ? en : zh), { status: 401 });
+
+  if (!process.env.BOT_TOKEN) throw err('BOT_TOKEN 未配置', 'BOT_TOKEN not configured');
   if (typeof initData !== 'string' || !initData || initData.length > 8192) {
-    throw new Error('请从 Telegram 内打开此页面');
+    throw err('请从 Telegram 内打开此页面', 'Please open this page inside Telegram');
   }
 
   const params = new URLSearchParams(initData);
@@ -22,19 +35,20 @@ function verifyInitData(initData) {
 
   if (!receivedHash || !/^[a-f0-9]{64}$/i.test(receivedHash) ||
       !Number.isSafeInteger(authDate) || !userRaw) {
-    throw new Error('Telegram 身份数据不完整');
+    throw err('Telegram 身份数据不完整', 'Telegram initData is incomplete');
   }
 
   const now = Math.floor(Date.now() / 1000);
   if (authDate > now + 60 || now - authDate > MAX_AGE_SECONDS) {
-    throw new Error('登录信息已过期，请重新打开 Mini App');
+    throw err('登录信息已过期，请重新打开 Mini App', 'Login expired; please reopen the Mini App');
   }
 
   const dataCheckString = [...params.entries()]
     .filter(([key]) => key !== 'hash')
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
+    .join('
+');
 
   const secret = crypto
     .createHmac('sha256', 'WebAppData')
@@ -50,16 +64,16 @@ function verifyInitData(initData) {
 
   if (suppliedHash.length !== calculatedHash.length ||
       !crypto.timingSafeEqual(suppliedHash, calculatedHash)) {
-    throw new Error('Telegram 身份验证失败');
+    throw err('Telegram 身份验证失败', 'Telegram authentication failed');
   }
 
   let user;
   try { user = JSON.parse(userRaw); } catch {
-    throw new Error('Telegram 用户信息格式无效');
+    throw err('Telegram 用户信息格式无效', 'Invalid Telegram user info format');
   }
 
   if (!user || !Number.isSafeInteger(Number(user.id)) || Number(user.id) <= 0) {
-    throw new Error('Telegram 用户信息无效');
+    throw err('Telegram 用户信息无效', 'Invalid Telegram user info');
   }
 
   return { telegramId: String(user.id), user };
@@ -106,7 +120,7 @@ router.get('/me', async (req, res) => {
   const u = req.miniUser;
   res.json({
     user: {
-      firstName: u.first_name || req.telegramUser.first_name || '用户',
+      firstName: u.first_name || req.telegramUser.first_name || (req.lang === 'en' ? 'User' : '用户'),
       username: u.username || req.telegramUser.username || '',
       balance: String(u.balance),
       currency: 'USDT'
