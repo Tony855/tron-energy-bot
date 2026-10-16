@@ -214,13 +214,14 @@ ${t(lang, 'home.security')}`,
   };
 
   const showWithdrawPrompt = async ctx => {
+    const lang = await langOf(ctx, query);
     pendingInput.set(ctx.from.id, 'withdraw');
     await render(
       ctx,
-      '📤 <b>提现申请</b>\n\n' +
-      '请按以下格式发送：金额 空格 收款TRON地址\n' +
-      '例如：<code>10 Txxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx</code>\n\n' +
-      '提交后进入管理员审核，不会立即链上转账。',
+      t(lang, 'content.withdraw.title') + '\n\n' +
+      t(lang, 'content.withdraw.howto') + '\n' +
+      t(lang, 'content.withdraw.ex') + '\n\n' +
+      t(lang, 'content.withdraw.note'),
       cancelMenu
     );
   };
@@ -485,8 +486,8 @@ ${t(lang, 'home.security')}`,
 
   bot.command('withdraw', async ctx => {
     const [amount, destination] = String(ctx.match || '').trim().split(/\s+/);
-    if (!amount || !destination) return ctx.reply('用法：/withdraw 金额 T开头的TRON地址\n例如：/withdraw 10 T...');
-    if (!validateAddress(destination)) return ctx.reply('TRON 地址无效，请检查地址及校验和。');
+    if (!amount || !destination) return ctx.reply(t(lang, 'content.withdraw.usage'));
+    if (!validateAddress(destination)) return ctx.reply(t(lang, 'content.withdraw.bad_addr'));
     try { validateWithdrawalAmount(amount); } catch (e) { return ctx.reply(e.message); }
 
     const conn = await pool.getConnection();
@@ -517,12 +518,11 @@ ${t(lang, 'home.security')}`,
       await conn.commit();
     } catch (e) {
       await conn.rollback();
-      return ctx.reply(e.message || '提现申请失败，请稍后重试。');
+      return ctx.reply(e.message || t(lang, 'content.withdraw.failed'));
     } finally { conn.release(); }
 
     await ctx.reply(
-      `提现申请已提交，编号 #${insertId}\n金额：${amount} USDT\n收款地址：${destination}\n` +
-      `状态：待管理员审核\n\n批准后将从可用余额扣款，链上转账由管理员人工执行。`
+      t(lang, 'content.withdraw.submitted', { id: insertId, amount, addr: destination })
     );
   });
 
@@ -919,10 +919,10 @@ ${t(lang, 'home.security')}`,
       pendingInput.delete(ctx.from.id);
       const parts = text.split(/\s+/);
       if (parts.length !== 2) {
-        return render(ctx, '格式不正确。请重新点击“提现申请”，发送：金额 空格 收款TRON地址', homeMenu);
+        return render(ctx, t(lang, 'content.withdraw.guided_fmt'), homeMenu);
       }
       const [amount, destination] = parts;
-      if (!validateAddress(destination)) return render(ctx, '收款地址无效，请重新发起提现申请。', homeMenu);
+      if (!validateAddress(destination)) return render(ctx, t(lang, 'content.withdraw.guided_bad'), homeMenu);
       try { validateWithdrawalAmount(amount); } catch (e) { return render(ctx, e.message, homeMenu); }
 
       const conn = await pool.getConnection();
@@ -953,12 +953,12 @@ ${t(lang, 'home.security')}`,
         await conn.commit();
       } catch (e) {
         await conn.rollback();
-        return render(ctx, e.message || '提现申请失败，请稍后重试。', homeMenu);
+        return render(ctx, e.message || t(lang, 'content.withdraw.failed'), homeMenu);
       } finally { conn.release(); }
 
       return render(
         ctx,
-        `✅ <b>提现申请已提交</b>\n\n编号：#${insertId}\n金额：${amount} USDT\n收款地址：${destination}\n状态：待管理员审核。`,
+        t(lang, 'content.withdraw.submitted', { id: insertId, amount, addr: destination }),
         backHome
       );
     }

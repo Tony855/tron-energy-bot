@@ -99,6 +99,12 @@ module.exports = {
 
   'content.deposit.pool_empty': 'No deposit address available. Please try later or contact admin. Do not send funds elsewhere.',
   'content.deposit.assign_fail': 'Unable to assign a deposit address. Contact admin. Do not send funds elsewhere.',
+  'content.withdraw.usage': 'Usage: /withdraw <amount> <TRON address>\nExample: /withdraw 10 T...',
+  'content.withdraw.bad_addr': 'Invalid TRON address; please check the address and checksum.',
+  'content.withdraw.guided_fmt': 'Wrong format. Please send: amount <space> TRON address',
+  'content.withdraw.guided_bad': 'Invalid address. Please start the withdrawal again.',
+  'content.withdraw.failed': 'Withdrawal request failed; please retry later.',
+  'content.withdraw.submitted': 'Withdrawal submitted\nID: #%s\nAmount: %s USDT\nTo: %s\nStatus: pending admin review\n\nFunds will be deducted on approval; the on-chain transfer is done manually.',
   'lang.title':       '🌐 <b>Language</b>\n\nChoose your language:',
   'lang.changed':     '✅ Language set to English',
   'lang.current':     'Current language: English',

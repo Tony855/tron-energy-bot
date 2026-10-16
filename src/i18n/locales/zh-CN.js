@@ -101,6 +101,12 @@ module.exports = {
 
   'content.deposit.pool_empty': '当前没有可分配的充值地址，请稍后再试或联系管理员。请勿向其他地址转账。',
   'content.deposit.assign_fail': '暂时无法分配充值地址，请联系管理员。请勿向其他地址转账。',
+  'content.withdraw.usage': '用法：/withdraw 金额 T开头的TRON地址\n例如：/withdraw 10 T...',
+  'content.withdraw.bad_addr': 'TRON 地址无效，请检查地址及校验和。',
+  'content.withdraw.guided_fmt': '格式不正确。请重新点击「提现申请」，发送：金额 空格 收款TRON地址',
+  'content.withdraw.guided_bad': '收款地址无效，请重新发起提现申请。',
+  'content.withdraw.failed': '提现申请失败，请稍后重试。',
+  'content.withdraw.submitted': '提现申请已提交\n编号：#%s\n金额：%s USDT\n收款地址：%s\n状态：待管理员审核\n\n批准后将从可用余额扣款，链上转账由管理员人工执行。',
   'lang.title':       '🌐 <b>语言设置</b>\n\n请选择界面语言：',
   'lang.changed':     '✅ 已切换为中文',
   'lang.current':     '当前语言：中文',
