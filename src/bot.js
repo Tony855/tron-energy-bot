@@ -279,10 +279,11 @@ ${t(lang, 'home.security')}`,
   };
 
   const showReport = async ctx => {
+    const lang = await langOf(ctx, query);
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return ctx.reply('请先发送 /start');
     const [w] = await query('SELECT COUNT(*) c FROM wallets WHERE user_id=? AND is_active=1', [uid]);
-    const [t] = await query(
+    const [tx2] = await query(
       `SELECT COUNT(*) c,
               COALESCE(SUM(CASE WHEN token_contract='TRX_NATIVE' THEN amount ELSE 0 END),0) trx_total,
               COALESCE(SUM(CASE WHEN token_contract<>'TRX_NATIVE' THEN amount ELSE 0 END),0) usdt_total
@@ -294,10 +295,12 @@ ${t(lang, 'home.security')}`,
     );
     await render(
       ctx,
-      `📊 <b>今日简报（UTC）</b>\n\n` +
-      `监听地址：${w.c}\n识别交易事件：${t.c}\n` +
-      `TRX 转账合计：${t.trx_total} TRX\nUSDT 转账合计：${t.usdt_total} USDT\n\n` +
-      `注：收/转方向均计入统计。`,
+      `${t(lang, 'content.report.title')}\n\n` +
+      `${t(lang, 'content.report.addr', { count: w.c })}\n` +
+      `${t(lang, 'content.report.events', { count: tx2.c })}\n` +
+      `${t(lang, 'content.report.trx', { amount: tx2.trx_total })}\n` +
+      `${t(lang, 'content.report.usdt', { amount: tx2.usdt_total })}\n\n` +
+      `${t(lang, 'content.report.note')}`,
       backHome
     );
   };
