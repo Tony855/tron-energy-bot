@@ -75,9 +75,11 @@ async function authenticate(req, res, next) {
     );
 
     if (!rows.length) {
-      return res.status(403).json({
-        error: '尚未创建账户，请先在机器人中发送 /start'
-      });
+      const lang = req.lang || normalizeLang(verified.user && verified.user.language_code) || 'zh-CN';
+      const msg = lang === 'en'
+        ? 'Account not created yet. Please send /start in the bot first.'
+        : '尚未创建账户，请先在机器人中发送 /start';
+      return res.status(403).json({ error: msg });
     }
     if (Number(rows[0].is_blocked) === 1) {
       return res.status(403).json({ error: '账户已停用，请联系管理员' });

@@ -238,7 +238,7 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
 <div id="app">
   <div class="top">
     <div class="brand"><div class="logo">ϟ</div><div>{{ tr("brandTitle") }}<div class="sub" style="margin-top:3px">{{ tr("brandSub") }}</div></div></div>
-    <span class="pill">● 安全连接</span>
+    <span class="pill">{{ tr("securePill") }}</span>
   </div>
 
   <p class="hello">{{ tr("hello") }}，{{ me?.user?.firstName || tr("home") }}</p>
@@ -278,7 +278,7 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
           <div class="card">
             <div class="label">{{ tr("bandwidthLabel") }}</div>
             <div class="value">{{ (Number(resource.netLimit)||0) + (Number(resource.freeNetLimit)||0) }}</div>
-            <div class="unit">已使用 {{ (Number(resource.netUsed)||0) + (Number(resource.freeNetUsed)||0) }}</div>
+            <div class="unit">{{ tr("usedLabel") }} {{ (Number(resource.netUsed)||0) + (Number(resource.freeNetUsed)||0) }}</div>
           </div>
         </div>
       </div>
@@ -288,9 +288,9 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
   <template v-if="tab==='transactions'">
     <div v-if="!transactions.length" class="empty">{{ tr("emptyTx") }}</div>
     <div class="list"><div class="item" v-for="(t,i) in transactions" :key="t.tx_hash+'-'+t.event_index">
-      <div class="itemtop"><strong>{{ t.amount }} <small>代币单位</small></strong><span class="tag">{{ Number(t.confirmed)===1?'已确认':'待确认' }}</span></div>
-      <div class="sub" style="margin-top:9px">地址：{{ short(t.wallet_address) }}</div>
-      <div class="hash">交易哈希：{{ t.tx_hash }}</div>
+      <div class="itemtop"><strong>{{ t.amount }} <small>{{ tr("tokenUnit") }}</small></strong><span class="tag">{{ Number(t.confirmed)===1?tr('txConfirmed'):tr('txPending') }}</span></div>
+      <div class="sub" style="margin-top:9px">{{ tr("addressLabel") }}{{ short(t.wallet_address) }}</div>
+      <div class="hash">{{ tr("txHashLabel") }}{{ t.tx_hash }}</div>
       <div class="sub" style="margin-top:7px">{{ time(t.block_timestamp) }}</div>
     </div></div>
   </template>
@@ -300,10 +300,10 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
     <div class="list"><div class="item" v-for="o in orders" :key="o.id">
       <div class="itemtop"><strong>订单 #{{ o.id }}</strong><span class="tag">{{ statusText(o.status) }}</span></div>
       <div class="address">{{ tr("orderReceiver") }}{{ o.receiver_address }}</div>
-      <div class="sub" style="margin-top:8px">{{ o.energy_amount }} 能量 · {{ o.duration_minutes }} 分钟</div>
+      <div class="sub" style="margin-top:8px">{{ o.energy_amount }} {{ tr("orderEnergy") }} · {{ o.duration_minutes }} {{ tr("orderDuration") }}</div>
       <div class="sub" style="margin-top:5px">{{ tr("orderQuote") }}{{ o.quoted_price }} {{ o.currency }}</div>
     </div></div>
-    <div class="empty">当前页面只展示订单，不会发起购买或扣款。</div>
+    <div class="empty">{{ tr("orderNote") }}</div>
   </template>
 
   <div class="footer">{{ tr("footer") }}<br>{{ tr("footerWarn") }}</div>
@@ -357,6 +357,13 @@ const I18N = {
     orderQuote: '报价：',
     footer: 'TRON Energy · Telegram Mini App',
     footerWarn: '请勿向任何人提供私钥或助记词',
+    securePill: '● 安全连接',
+    tokenUnit: '代币单位',
+    txConfirmed: '已确认',
+    txPending: '待确认',
+    addressLabel: '地址：',
+    txHashLabel: '交易哈希：',
+    orderNote: '当前页面只展示订单，不会发起购买或扣款。',
     wallet: '钱包',
   },
   'en': {
@@ -404,6 +411,13 @@ const I18N = {
     orderQuote: 'Quote: ',
     footer: 'TRON Energy · Telegram Mini App',
     footerWarn: 'Never share your private key or seed phrase',
+    securePill: '● Secure',
+    tokenUnit: 'token',
+    txConfirmed: 'confirmed',
+    txPending: 'pending',
+    addressLabel: 'Address: ',
+    txHashLabel: 'Tx: ',
+    orderNote: 'This page only displays orders; no purchase or charge is made here.',
     wallet: 'Wallet',
   }
 };
