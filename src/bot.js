@@ -554,7 +554,7 @@ ${t(lang, 'home.security')}`,
   bot.callbackQuery(['wallets', 'wallet:list'],      async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     await showWalletHome(ctx, uid);
   });
   bot.callbackQuery('deposit',      async ctx => { await ctx.answerCallbackQuery(); await showDeposit(ctx); });
@@ -598,7 +598,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const ws = await query(
       "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=1 ORDER BY id DESC LIMIT 10",
       [uid]
@@ -614,7 +614,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [Number(ctx.match[1]), uid]
@@ -633,7 +633,7 @@ ${t(lang, 'home.security')}`,
   bot.callbackQuery(/^wallet:rm:yes:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const [r] = await pool.execute(
       "UPDATE wallets SET is_active=0 WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1",
       [Number(ctx.match[1]), uid]
@@ -649,7 +649,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const ws = await query(
       "SELECT id,address FROM wallets WHERE user_id=? AND wallet_type='monitor' AND is_active=0 ORDER BY id DESC LIMIT 20",
       [uid]
@@ -667,7 +667,7 @@ ${t(lang, 'home.security')}`,
   bot.callbackQuery(/^wallet:restore:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const [r] = await pool.execute(
       "UPDATE wallets SET is_active=1 WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
       [Number(ctx.match[1]), uid]
@@ -683,7 +683,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=0",
       [Number(ctx.match[1]), uid]
@@ -703,7 +703,7 @@ ${t(lang, 'home.security')}`,
   bot.callbackQuery(/^wallet:delete:confirm:(\d+)$/, async ctx => {
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const id = Number(ctx.match[1]);
     let conn;
     try {
@@ -767,7 +767,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [Number(ctx.match[1]), uid]
@@ -827,7 +827,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const rows = await query(
       "SELECT id,address FROM wallets WHERE id=? AND user_id=? AND wallet_type='monitor' AND is_active=1 LIMIT 1",
       [Number(ctx.match[1]), uid]
@@ -849,7 +849,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     await ctx.answerCallbackQuery();
     const uid = await userIdFor(ctx.from.id);
-    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+    if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
     const direction = ctx.match[1];
     const walletId = Number(ctx.match[2]);
     const wallets = await query(
@@ -901,7 +901,7 @@ ${t(lang, 'home.security')}`,
       }
       pendingInput.delete(ctx.from.id);
       const uid = await userIdFor(ctx.from.id);
-      if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome;
+      if (!uid) return render(ctx, t(lang, 'common.need_start'), backHome);
       try {
         await query(
           "INSERT INTO wallets (user_id,address,wallet_type,label) VALUES (?,?, 'monitor','用户监控')",
@@ -933,7 +933,7 @@ ${t(lang, 'home.security')}`,
       try {
         await conn.beginTransaction();
         const [users] = await conn.execute('SELECT id,balance FROM users WHERE telegram_id=? FOR UPDATE', [ctx.from.id]);
-        if (!users.length) { await conn.rollback(); return render(ctx, t(lang, 'common.need_start'), homeMenu; }
+        if (!users.length) { await conn.rollback(); return render(ctx, t(lang, 'common.need_start'), homeMenu); }
         const uid = users[0].id;
         const [pending] = await conn.execute(
           "SELECT COUNT(*) count FROM withdrawal_requests WHERE user_id=? AND status IN ('pending','approved')",
