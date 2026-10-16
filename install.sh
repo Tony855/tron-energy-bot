@@ -155,16 +155,29 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 info "安装系统依赖（MySQL、Nginx、Node.js、age、rsync、curl）..."
+apt_wait() {
+  local waited=0
+  while pgrep -x apt-get >/dev/null 2>&1 || pgrep -x apt >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1; do
+    if (( waited >= 120 )); then die "apt lock 超时（120 秒）"; fi
+    sleep 3; waited=$(( waited + 3 ))
+  done
+}
+apt_wait
 apt-get update
-apt-get install -y ca-certificates curl gnupg nginx mysql-server openssl python3 age rsync
+apt_wait
+apt-get install -y --no-install-recommends ca-certificates curl gnupg nginx mysql-server openssl python3 age rsync
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "$MIN_NODE_MAJOR" ]]; then
   info "配置 NodeSource Node.js 22 仓库..."
   install -d -m 0755 /etc/apt/keyrings
-  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
+  curl -fsSL --retry 3 --retry-delay 2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg || die "无法获取 NodeSource GPG key"
+  [[ -s /etc/apt/keyrings/nodesource.gpg ]] || die "NodeSource GPG key 为空"
+  gpg --list-packets /etc/apt/keyrings/nodesource.gpg >/dev/null 2>&1 || die "NodeSource GPG key 格式无效"
   chmod 0644 /etc/apt/keyrings/nodesource.gpg
   echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+  apt_wait
   apt-get update
-  apt-get install -y nodejs
+  apt_wait
+  apt-get install -y --no-install-recommends nodejs
 fi
 node_major="$(node -p 'Number(process.versions.node.split(`.`)[0])')"
 [[ "$node_major" -ge "$MIN_NODE_MAJOR" ]] || die "需要 Node.js 22+，当前为 $(node -v)。"
@@ -214,7 +227,9 @@ mysql --protocol=socket < "$APP_DIR/sql/schema.sql"
 # Password charset is restricted above, so SQL interpolation cannot inject statements.
 mysql --protocol=socket <<SQL
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON ${DB_NAME}.* TO '${DB_USER}'@'127.0.0.1';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 # Verify application credentials before enabling the service.
@@ -248,6 +263,7 @@ UMask=0077
 WantedBy=multi-user.target
 UNIT
 chmod 0644 "$SERVICE_FILE"
+systemd-analyze verify "$SERVICE_FILE" >/dev/null 2>&1 || die "systemd unit 校验失败：$SERVICE_FILE"
 
 if [[ -n "$DOMAIN" ]]; then
   info "配置 Nginx（HTTP 反代；证书需另行申请）..."
@@ -321,9 +337,12 @@ systemctl enable --now "$APP_NAME"
 
 info "等待健康检查..."
 healthy=0
-for _ in {1..20}; do
+_elapsed=0; _delay=1
+while (( _elapsed < 60 )); do
   if curl --connect-timeout 2 --max-time 4 -fsS http://127.0.0.1:3080/health >/tmp/tron-energy-install-health.json; then healthy=1; break; fi
-  sleep 2
+  sleep "$_delay"
+  _elapsed=$(( _elapsed + _delay ))
+  _delay=$(( _delay < 8 ? _delay * 2 : 8 ))
 done
 if (( healthy != 1 )); then
   journalctl -u "$APP_NAME" -n 80 --no-pager >&2 || true
@@ -332,6 +351,10 @@ fi
 
 # Save credentials root-only so they remain recoverable if terminal output is lost.
 CREDENTIALS_FILE="/root/tron-energy-bot-credentials.txt"
+if [[ -e "$CREDENTIALS_FILE" ]]; then
+  mv "$CREDENTIALS_FILE" "${CREDENTIALS_FILE}.old-$(date +%Y%m%d-%H%M%S)"
+  warn "已存在旧凭据文件，已重命名为 .old-<时间戳>"
+fi
 cat > "$CREDENTIALS_FILE" <<CREDS
 TRON Energy Bot 安装凭据
 生成时间：$(date -Is)
@@ -364,5 +387,24 @@ printf '\n事件 Webhook：POST /api/events/tron；签名头 x-tron-signature: s
 printf '事件密钥已保存至 %s；请从该 root-only 文件安全读取并配置到第三方事件供应商。\n' "$ENV_FILE"
 printf '下一步：将域名 A 记录指向服务器后，安装 certbot 并为 Nginx 配置 HTTPS。\n'
 warn "请立即保存上方随机密码。若遗失，可使用 root 读取 $CREDENTIALS_FILE。"
+
+printf "
+========== 安装后建议 ==========
+"
+printf "1. 防火墙：如启用 ufw，执行 ufw allow 80,443/tcp && ufw reload
+"
+if [[ -n "\$DOMAIN" ]]; then
+  printf "2. HTTPS：apt install -y certbot python3-certbot-nginx && certbot --nginx -d %s
+" "\$DOMAIN"
+else
+  printf "2. HTTPS：未配置域名；如需公网访问，请先设置 DNS 并在 install.sh 输入域名
+"
+fi
+printf "3. 事件源：将 %s 中的 TRON_EVENT_WEBHOOK_SECRET 配置到第三方 TRON 事件服务
+" "\$ENV_FILE"
+printf "4. 备份：systemctl status tron-energy-backup.timer
+"
+printf "5. 监控：systemctl status tron-energy-ops-monitor.timer
+"
 warn "事件模式已启用，但 TronGrid 公共 API 不会主动推送事件。必须配置支持 TRON 主网事件 Webhook 的第三方服务，否则无法自动发现新交易。"
 warn "能量供应商未接入，自动入账保持关闭。请勿在完成主网联调前开放真实资金流程。"
