@@ -112,7 +112,7 @@ function createBot() {
   );
   const requireAdmin = async ctx => {
     if (!adminIds.has(String(ctx.from.id))) {
-      await ctx.reply('无权执行此管理员操作。');
+      await ctx.reply(t(lang, 'cmd.unauthorized'));
       return false;
     }
     return true;
@@ -402,10 +402,12 @@ ${t(lang, 'home.security')}`,
       [uid]
     );
     await ctx.reply(
-      `监听状态\n启用地址：${rows.count}\n最近扫描：${rows.last_scan || '尚未完成首次扫描'}\n` +
-      `近 24 小时新入库交易：${tx.count}\n` +
-      `支持：TRX 原生转账、配置的 USDT-TRC20 合约\n` +
-      `说明：事件驱动模式；未配置第三方推送源时不会自动发现新交易。`
+      `${t(lang, 'status.title')}\n` +
+      `${t(lang, 'status.addr', { count: rows.count })}\n` +
+      `${t(lang, 'status.last', { last: rows.last_scan || '—' })}\n` +
+      `${t(lang, 'status.24h', { count: tx.count })}\n` +
+      `${t(lang, 'status.line1')}\n` +
+      `${t(lang, 'status.line2')}`
     );
   });
 
@@ -422,7 +424,7 @@ ${t(lang, 'home.security')}`,
 
   bot.command('removewallet', async ctx => {
     const address = String(ctx.match || '').trim();
-    if (!validateAddress(address)) return ctx.reply('用法：/removewallet T开头的TRON地址');
+    if (!validateAddress(address)) return ctx.reply(t(lang, 'cmd.removewallet_usage'));
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return ctx.reply(t(lang, 'common.need_start'));
     const [result] = await pool.execute(
@@ -471,7 +473,7 @@ ${t(lang, 'home.security')}`,
 
   bot.command('resources', async ctx => {
     const address = String(ctx.match || '').trim();
-    if (!validateAddress(address)) return ctx.reply('用法：/resources T开头的TRON地址');
+    if (!validateAddress(address)) return ctx.reply(t(lang, 'cmd.resources_usage'));
     try {
       const r = await getAccount(address);
       await ctx.reply(
@@ -481,7 +483,7 @@ ${t(lang, 'home.security')}`,
         `免费 Bandwidth：${resourceValue(r.freeNetUsed)}/${resourceValue(r.freeNetLimit)}`
       );
     } catch (e) {
-      await ctx.reply(`查询失败：${e.message}\n请检查 TRON API 地址、API Key 或网络连接。`);
+      await ctx.reply(t(lang, 'cmd.resources_fail', { msg: e.message }));
     }
   });
 
@@ -868,17 +870,18 @@ ${t(lang, 'home.security')}`,
     );
     const body = rows.length
       ? rows.map((t, i) => {
-          const token = t.token_contract === 'TRX_NATIVE' ? 'TRX' : (t.token_contract || '代币');
-          const status = Number(t.confirmed) === 1 ? '已确认' : '待确认';
+          const token = t.token_contract === 'TRX_NATIVE' ? t(lang, 'tx.token_trx') : (t.token_contract || t(lang, 'tx.token_fallback'));
+          const status = Number(t.confirmed) === 1 ? t(lang, 'tx.confirmed') : t(lang, 'tx.pending');
           return `${i + 1}. ${token} ${t.amount}\n` +
-                 `时间：${fmtUtc(t.block_timestamp)}\n状态：${status}\n` +
+                 `${t(lang, 'tx.detail_time', { t: fmtUtc(t.block_timestamp) })}\n` +
+                 `${t(lang, 'tx.detail_status', { s: status })}\n` +
                  `${shortAddr(t.from_address, 6, 6)} → ${shortAddr(t.to_address, 6, 6)}\n` +
                  `<code>${t.tx_hash}</code>`;
         }).join('\n\n')
-      : `暂无此地址已记录的${direction === 'in' ? '收款' : '付款'}交易。\n未被事件源推送或未写入数据库的历史交易不会出现在这里。`;
+      : t(lang, 'tx.detail_none', { dir: direction === 'in' ? t(lang, 'tx.dir_in') : t(lang, 'tx.dir_out') });
     await render(
       ctx,
-      `${direction === 'in' ? '📥' : '📤'} <b>${direction === 'in' ? '收款' : '付款'}记录（最近 10 笔）</b>\n\n` +
+      (direction === 'in' ? t(lang, 'tx.detail_in') : t(lang, 'tx.detail_out')) + '\n\n' +
       `地址：<code>${address}</code>\n\n${body}`,
       new InlineKeyboard()
         .text(t(lang, 'wallet.in_short'), `wallet:history:in:${walletId}`)
