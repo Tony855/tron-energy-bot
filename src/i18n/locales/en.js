@@ -97,6 +97,8 @@ module.exports = {
   'content.balance.amount': 'Balance: <b>{balance} USDT</b>',
   'content.balance.note':   'Withdrawals need admin approval.',
 
+  'content.deposit.pool_empty': 'No deposit address available. Please try later or contact admin. Do not send funds elsewhere.',
+  'content.deposit.assign_fail': 'Unable to assign a deposit address. Contact admin. Do not send funds elsewhere.',
   'lang.title':       '🌐 <b>Language</b>\n\nChoose your language:',
   'lang.changed':     '✅ Language set to English',
   'lang.current':     'Current language: English',

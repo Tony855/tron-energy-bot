@@ -191,20 +191,21 @@ ${t(lang, 'home.security')}`,
   };
 
   const showDeposit = async ctx => {
+    const lang = await langOf(ctx, query);
     const uid = await userIdFor(ctx.from.id);
     if (!uid) return ctx.reply('请先发送 /start');
     const r = await ensureDepositAddress(uid);
     if (r.reason === 'pool_empty') {
-      return render(ctx, '当前没有可分配的充值地址，请稍后再试或联系管理员。请勿向其他地址转账。', backHome);
+      return render(ctx, t(lang, 'content.deposit.pool_empty'), backHome);
     }
     if (r.reason === 'error') {
-      return render(ctx, '暂时无法分配充值地址，请联系管理员。请勿向其他地址转账。', backHome);
+      return render(ctx, t(lang, 'content.deposit.assign_fail'), backHome);
     }
     await render(
       ctx,
-      `📥 <b>你的专属充值地址</b>\n\n<code>${r.address}</code>\n\n` +
-      `网络：TRON 主网\n币种：USDT-TRC20\n\n` +
-      `⚠️ 仅发送指定合约的 USDT。到账识别后仍需链上核验与管理员审核。`,
+      `${t(lang, 'content.deposit.title')}\n\n<code>${r.address}</code>\n\n` +
+      `${t(lang, 'content.deposit.net')}\n\n` +
+      `${t(lang, 'content.deposit.warn')}`,
       new InlineKeyboard()
         .text(t(lang, 'menu.transactions'), 'transactions')
         .text(t(lang, 'deposit.withdraw'), 'withdraw').row()

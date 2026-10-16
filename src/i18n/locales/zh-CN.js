@@ -99,6 +99,8 @@ module.exports = {
   'content.balance.amount': '可用余额：<b>{balance} USDT</b>',
   'content.balance.note':   '提现需提交申请并通过管理员审核。',
 
+  'content.deposit.pool_empty': '当前没有可分配的充值地址，请稍后再试或联系管理员。请勿向其他地址转账。',
+  'content.deposit.assign_fail': '暂时无法分配充值地址，请联系管理员。请勿向其他地址转账。',
   'lang.title':       '🌐 <b>语言设置</b>\n\n请选择界面语言：',
   'lang.changed':     '✅ 已切换为中文',
   'lang.current':     '当前语言：中文',
