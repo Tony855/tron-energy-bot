@@ -138,6 +138,7 @@ module.exports = {
   'admin.reject_notfound': '订单不存在或已处理。',
   'wallet.disabled_title': '♻️ <b>已停用的监听地址</b>\n\n请选择恢复或申请永久删除。',
   'wallet.query_fail': '查询失败，请检查 TRON API 配置或网络连接。',
+  'cmd_help.text': '命令：/start /balance /wallets /addwallet /removewallet /resources /deposit /withdraw /transactions /status /referral /report\n管理员：/pendingrecharges /verifyrecharge ID /approverecharge ID /rejectrecharge ID 原因\n请勿向机器人发送助记词或私钥。',
   'lang.title':       '🌐 <b>语言设置</b>\n\n请选择界面语言：',
   'lang.changed':     '✅ 已切换为中文',
   'lang.current':     '当前语言：中文',

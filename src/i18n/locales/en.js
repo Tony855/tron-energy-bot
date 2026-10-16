@@ -136,6 +136,7 @@ module.exports = {
   'admin.reject_notfound': 'Order not found or already processed.',
   'wallet.disabled_title': '♻️ <b>Disabled addresses</b>\n\nChoose to restore or permanently delete.',
   'wallet.query_fail': 'Query failed; please check TRON API config or network.',
+  'cmd_help.text': 'Commands: /start /balance /wallets /addwallet /removewallet /resources /deposit /withdraw /transactions /status /referral /report\nAdmin: /pendingrecharges /verifyrecharge ID /approverecharge ID /rejectrecharge ID reason\nNever share mnemonics or private keys.',
   'lang.title':       '🌐 <b>Language</b>\n\nChoose your language:',
   'lang.changed':     '✅ Language set to English',
   'lang.current':     'Current language: English',

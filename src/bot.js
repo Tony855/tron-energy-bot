@@ -375,9 +375,7 @@ ${t(lang, 'home.security')}`,
 
   bot.command('start', showHome);
   bot.command('help', ctx => ctx.reply(
-    '命令：/start /balance /wallets /addwallet /removewallet /resources /deposit /withdraw /transactions /status /referral /report\n' +
-    '管理员：/pendingrecharges /verifyrecharge ID /approverecharge ID /rejectrecharge ID 原因\n' +
-    '请勿向机器人发送助记词或私钥。'
+    t(lang, 'cmd_help.text')
   ));
 
   bot.command('balance', async ctx => {
