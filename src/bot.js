@@ -382,7 +382,7 @@ ${t(lang, 'home.security')}`,
     const lang = await langOf(ctx, query);
     const rows = await query('SELECT balance FROM users WHERE telegram_id=?', [ctx.from.id]);
     if (!rows.length) return ctx.reply(t(lang, 'common.need_start'));
-    await ctx.reply(t(lang, 'balance.amount', { balance: rows[0].balance }));
+    await ctx.reply(t(lang, 'balance.amount', { balance: rows[0].balance }), { parse_mode: 'HTML' });
   });
 
   bot.command('status', async ctx => {
