@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
-<title>TRON 能量中心</title>
+<title>TRON Energy Center</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
@@ -237,46 +237,46 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
 <body>
 <div id="app">
   <div class="top">
-    <div class="brand"><div class="logo">ϟ</div><div>TRON 能量中心<div class="sub" style="margin-top:3px">监听 · 资源 · 交易</div></div></div>
+    <div class="brand"><div class="logo">ϟ</div><div>{{ tr("brandTitle") }}<div class="sub" style="margin-top:3px">{{ tr("brandSub") }}</div></div></div>
     <span class="pill">● 安全连接</span>
   </div>
 
-  <p class="hello">你好，{{ me?.user?.firstName || '欢迎回来' }}</p>
+  <p class="hello">{{ tr("hello") }}，{{ me?.user?.firstName || tr("home") }}</p>
 
   <section class="balance">
-    <div class="eyebrow">账户可用余额</div>
+    <div class="eyebrow">{{ tr("balanceTitle") }}</div>
     <div class="amount">{{ me ? Number(me.user.balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:6}) : '—' }} <small>USDT</small></div>
-    <div class="note">余额以系统账本为准 · 链上资产独立显示</div>
+    <div class="note">{{ tr("balanceNote") }}</div>
   </section>
 
-  <div class="section"><h2>服务概览</h2><span class="sub">实时请求</span></div>
+  <div class="section"><h2>{{ tr("svcTitle") }}</h2><span class="sub">{{ tr("svcLive") }}</span></div>
   <div class="grid">
-    <div class="card"><div class="label">监听地址</div><div class="value">{{ wallets.length }}</div><div class="unit">已启用地址</div></div>
-    <div class="card"><div class="label">能量服务</div><div class="value" style="font-size:17px">{{ me?.capabilities?.energyProviderConfigured ? '已配置' : '暂未开通' }}</div><div class="unit">供应商状态</div></div>
+    <div class="card"><div class="label">监听地址</div><div class="value">{{ wallets.length }}</div><div class="unit">{{ tr("cardWalletsUnit") }}</div></div>
+    <div class="card"><div class="label">{{ tr("cardEnergy") }}</div><div class="value" style="font-size:17px">{{ me?.capabilities?.energyProviderConfigured ? tr("cardEnergyReady") : tr("cardEnergyNotReady") }}</div><div class="unit">{{ tr("cardEnergyUnit") }}</div></div>
   </div>
 
-  <div class="section"><h2>管理中心</h2><button class="btn" @click="refresh" :disabled="loading">{{ loading ? '刷新中…' : '↻ 刷新数据' }}</button></div>
+  <div class="section"><h2>{{ tr("mgmt") }}</h2><button class="btn" @click="refresh" :disabled="loading">{{ loading ? tr("refreshing") : "↻ " + tr("refresh") }}</button></div>
   <div class="tabs">
     <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">我的地址</button>
-    <button class="tab" :class="{active:tab==='transactions'}" @click="tab='transactions';loadTransactions()">交易记录</button>
-    <button class="tab" :class="{active:tab==='orders'}" @click="tab='orders';loadOrders()">能量订单</button>
+    <button class="tab" :class="{active:tab==='transactions'}" @click="tab='transactions';loadTransactions()">{{ tr("tabTx") }}</button>
+    <button class="tab" :class="{active:tab==='orders'}" @click="tab='orders';loadOrders()">{{ tr("tabOrders") }}</button>
   </div>
 
   <div v-if="error" class="error">{{ error }}</div>
   <template v-if="tab==='wallets'">
-    <div v-if="!wallets.length && !loading" class="empty">暂无启用的监听地址<br>请先在机器人中使用“监听管理”添加地址。</div>
+    <div v-if="!wallets.length && !loading" class="empty">{{ tr("emptyWallets") }}</div>
     <div class="list">
       <div class="item" v-for="w in wallets" :key="w.id">
-        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?'充值地址':'监听地址') }}</strong><span class="tag">{{ w.wallet_type==='deposit'?'充值地址':'监控地址' }}</span></div>
+        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?tr('labelDeposit'):tr('labelMonitor')) }}</strong><span class="tag">{{ w.wallet_type==='deposit'?'充值地址':'监控地址' }}</span></div>
         <div class="address">{{ w.address }}</div>
-        <div class="sub" style="margin-top:8px">最后扫描：{{ w.last_scanned_at || '暂无记录' }}</div>
-        <div class="actions"><button class="btn primary" @click="loadResources(w)">查询链上资源</button></div>
+        <div class="sub" style="margin-top:8px">{{ tr("lastScan") }}{{ w.last_scanned_at || tr("noScan") }}</div>
+        <div class="actions"><button class="btn primary" @click="loadResources(w)">{{ tr("queryChain") }}</button></div>
         <div v-if="resourceFor===w.id && resource" class="grid" style="margin-top:12px">
-          <div class="card"><div class="label">TRX 余额</div><div class="value">{{ resource.trx }}</div><div class="unit">TRX</div></div>
-          <div class="card"><div class="label">USDT 余额</div><div class="value">{{ resource.usdt ?? '查询不可用' }}</div><div class="unit">TRC20</div></div>
-          <div class="card"><div class="label">能量</div><div class="value">{{ resource.energyLimit ?? 0 }}</div><div class="unit">已使用 {{ resource.energyUsed ?? 0 }}</div></div>
+          <div class="card"><div class="label">{{ tr("trxBalance") }}</div><div class="value">{{ resource.trx }}</div><div class="unit">TRX</div></div>
+          <div class="card"><div class="label">{{ tr("usdtBalance") }}</div><div class="value">{{ resource.usdt ?? '查询不可用' }}</div><div class="unit">TRC20</div></div>
+          <div class="card"><div class="label">{{ tr("energyLabel") }}</div><div class="value">{{ resource.energyLimit ?? 0 }}</div><div class="unit">{{ tr("usedLabel") }} {{ resource.energyUsed ?? 0 }}</div></div>
           <div class="card">
-            <div class="label">带宽</div>
+            <div class="label">{{ tr("bandwidthLabel") }}</div>
             <div class="value">{{ (Number(resource.netLimit)||0) + (Number(resource.freeNetLimit)||0) }}</div>
             <div class="unit">已使用 {{ (Number(resource.netUsed)||0) + (Number(resource.freeNetUsed)||0) }}</div>
           </div>
@@ -286,7 +286,7 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
   </template>
 
   <template v-if="tab==='transactions'">
-    <div v-if="!transactions.length" class="empty">暂无已入库交易记录。</div>
+    <div v-if="!transactions.length" class="empty">{{ tr("emptyTx") }}</div>
     <div class="list"><div class="item" v-for="(t,i) in transactions" :key="t.tx_hash+'-'+t.event_index">
       <div class="itemtop"><strong>{{ t.amount }} <small>代币单位</small></strong><span class="tag">{{ Number(t.confirmed)===1?'已确认':'待确认' }}</span></div>
       <div class="sub" style="margin-top:9px">地址：{{ short(t.wallet_address) }}</div>
@@ -296,29 +296,128 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
   </template>
 
   <template v-if="tab==='orders'">
-    <div v-if="!orders.length" class="empty">暂无能量订单。</div>
+    <div v-if="!orders.length" class="empty">{{ tr("emptyOrders") }}</div>
     <div class="list"><div class="item" v-for="o in orders" :key="o.id">
       <div class="itemtop"><strong>订单 #{{ o.id }}</strong><span class="tag">{{ statusText(o.status) }}</span></div>
-      <div class="address">接收地址：{{ o.receiver_address }}</div>
+      <div class="address">{{ tr("orderReceiver") }}{{ o.receiver_address }}</div>
       <div class="sub" style="margin-top:8px">{{ o.energy_amount }} 能量 · {{ o.duration_minutes }} 分钟</div>
-      <div class="sub" style="margin-top:5px">报价：{{ o.quoted_price }} {{ o.currency }}</div>
+      <div class="sub" style="margin-top:5px">{{ tr("orderQuote") }}{{ o.quoted_price }} {{ o.currency }}</div>
     </div></div>
     <div class="empty">当前页面只展示订单，不会发起购买或扣款。</div>
   </template>
 
-  <div class="footer">TRON Energy · Telegram Mini App<br>请勿向任何人提供私钥或助记词</div>
+  <div class="footer">{{ tr("footer") }}<br>{{ tr("footerWarn") }}</div>
 </div>
 
 <script>
+
+const I18N = {
+  'zh-CN': {
+    brandTitle: 'TRON 能量中心',
+    brandSub: '监听 · 资源 · 交易',
+    hello: '你好',
+    balanceTitle: '账户可用余额',
+    balanceNote: '余额以系统账本为准 · 链上资产独立显示',
+    svcTitle: '服务概览',
+    svcLive: '实时请求',
+    cardWallets: '监听地址',
+    cardWalletsUnit: '已启用地址',
+    cardEnergy: '能量服务',
+    cardEnergyNotReady: '暂未开通',
+    cardEnergyReady: '已配置',
+    cardEnergyUnit: '供应商状态',
+    mgmt: '管理中心',
+    refresh: '刷新数据',
+    refreshing: '刷新中…',
+    tabWallets: '我的地址',
+    tabTx: '交易记录',
+    tabOrders: '能量订单',
+    labelDeposit: '充值地址',
+    labelMonitor: '监控地址',
+    lastScan: '最后扫描：',
+    noScan: '暂无记录',
+    queryChain: '查询链上资源',
+    trxBalance: 'TRX 余额',
+    usdtBalance: 'USDT 余额',
+    energyLabel: '能量',
+    bandwidthLabel: '带宽',
+    usedLabel: '已使用',
+    emptyWallets: '暂无启用的监听地址，请先在机器人中添加。',
+    historyIn: '收款记录',
+    historyOut: '付款记录',
+    refreshBtn: '刷新',
+    otherAddr: '其他地址',
+    backWallet: '返回监听管理',
+    home: '主菜单',
+    emptyTx: '暂无已入库交易记录。',
+    emptyOrders: '暂无能量订单。',
+    orderReceiver: '接收地址：',
+    orderEnergy: '能量',
+    orderDuration: '分钟',
+    orderQuote: '报价：',
+    footer: 'TRON Energy · Telegram Mini App',
+    footerWarn: '请勿向任何人提供私钥或助记词',
+    wallet: '钱包',
+  },
+  'en': {
+    brandTitle: 'TRON Energy Center',
+    brandSub: 'Monitoring · Resources · Transactions',
+    hello: 'Hi',
+    balanceTitle: 'Available Balance',
+    balanceNote: 'Balance per system ledger · on-chain assets shown separately',
+    svcTitle: 'Overview',
+    svcLive: 'Live',
+    cardWallets: 'Monitored',
+    cardWalletsUnit: 'Active addresses',
+    cardEnergy: 'Energy Service',
+    cardEnergyNotReady: 'Not configured',
+    cardEnergyReady: 'Configured',
+    cardEnergyUnit: 'Provider status',
+    mgmt: 'Management',
+    refresh: 'Refresh',
+    refreshing: 'Refreshing…',
+    tabWallets: 'My Addresses',
+    tabTx: 'Transactions',
+    tabOrders: 'Energy Orders',
+    labelDeposit: 'Deposit',
+    labelMonitor: 'Monitoring',
+    lastScan: 'Last scan: ',
+    noScan: 'none',
+    queryChain: 'Query on-chain',
+    trxBalance: 'TRX Balance',
+    usdtBalance: 'USDT Balance',
+    energyLabel: 'Energy',
+    bandwidthLabel: 'Bandwidth',
+    usedLabel: 'Used',
+    emptyWallets: 'No active monitored address. Add one via the bot.',
+    historyIn: 'Received',
+    historyOut: 'Sent',
+    refreshBtn: 'Refresh',
+    otherAddr: 'Other',
+    backWallet: 'Back',
+    home: 'Menu',
+    emptyTx: 'No transactions yet.',
+    emptyOrders: 'No energy orders yet.',
+    orderReceiver: 'Receiver: ',
+    orderEnergy: 'Energy',
+    orderDuration: 'min',
+    orderQuote: 'Quote: ',
+    footer: 'TRON Energy · Telegram Mini App',
+    footerWarn: 'Never share your private key or seed phrase',
+    wallet: 'Wallet',
+  }
+};
+
 const {createApp}=Vue;
 createApp({
- data(){return {me:null,wallets:[],transactions:[],orders:[],tab:'wallets',loading:false,error:'',resourceFor:null,resource:null}},
+ data(){return {me:null,wallets:[],transactions:[],orders:[],tab:'wallets',loading:false,error:'',resourceFor:null,resource:null,lang:'zh-CN'}},
  async mounted(){
    if(!window.Telegram?.WebApp){this.error='请在 Telegram 机器人内打开此应用。';return}
    Telegram.WebApp.ready();Telegram.WebApp.expand();
-   try{await this.refresh()}catch(e){this.error=e.message}
+   try{const m=await this.api('/me');this.lang=(m&&m.lang)||'zh-CN';this.me=m;const w=await this.api('/wallets');this.wallets=w.wallets||[]}catch(e){this.error=e.message}
  },
  methods:{
+  tr(k){const t=(I18N[this.lang]||I18N['zh-CN']);return t[k]||(I18N['zh-CN'][k]||k)},
   async api(path){
    const initData=window.Telegram?.WebApp?.initData||'';
    const r=await fetch('/api/miniapp'+path,{headers:{'X-Telegram-Init-Data':initData,'Accept':'application/json'},cache:'no-store'});

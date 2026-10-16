@@ -3,6 +3,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { query } = require('./db');
+const { normalizeLang } = require('./i18n');
 const { getAccount, getTrc20Balance, validateAddress } = require('./tron');
 
 const router = express.Router();
@@ -69,7 +70,7 @@ async function authenticate(req, res, next) {
     const raw = req.get('X-Telegram-Init-Data') || '';
     const verified = verifyInitData(raw);
     const rows = await query(
-      'SELECT id,telegram_id,username,first_name,balance,is_blocked FROM users WHERE telegram_id=? LIMIT 1',
+      'SELECT id,telegram_id,username,first_name,balance,is_blocked,language FROM users WHERE telegram_id=? LIMIT 1',
       [verified.telegramId]
     );
 
@@ -84,6 +85,10 @@ async function authenticate(req, res, next) {
 
     req.miniUser = rows[0];
     req.telegramUser = verified.user;
+    // 从 DB → Telegram 顺序解析语言
+    req.lang = normalizeLang(rows[0].language)
+            || normalizeLang(verified.user.language_code)
+            || 'zh-CN';
     next();
   } catch (e) {
     res.status(401).json({
@@ -108,7 +113,8 @@ router.get('/me', async (req, res) => {
       walletMonitoring: true,
       energyProviderConfigured: false,
       automaticCredit: false
-    }
+    },
+    lang: req.lang
   });
 });
 
