@@ -9,6 +9,8 @@ const { getAccount, getTrc20Balance, validateAddress } = require('./tron');
 const router = express.Router();
 const MAX_AGE_SECONDS = 3600;
 
+function msg(lang, zh, en) { return lang === 'en' ? en : zh; }
+
 function verifyInitData(initData) {
   // 先尽力从原始 initData 里推断语言，用于选择错误文案（此步未验证签名，仅用于本地展示）
   let lang = 'zh-CN';
@@ -47,8 +49,7 @@ function verifyInitData(initData) {
     .filter(([key]) => key !== 'hash')
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => `${key}=${value}`)
-    .join('
-');
+    .join('\n');
 
   const secret = crypto
     .createHmac('sha256', 'WebAppData')
@@ -96,7 +97,7 @@ async function authenticate(req, res, next) {
       return res.status(403).json({ error: msg });
     }
     if (Number(rows[0].is_blocked) === 1) {
-      return res.status(403).json({ error: '账户已停用，请联系管理员' });
+      return res.status(403).json({ error: msg(normalizeLang(verified.user && verified.user.language_code) || 'zh-CN', '账户已停用，请联系管理员', 'Account disabled; contact admin') });
     }
 
     req.miniUser = rows[0];
@@ -149,7 +150,7 @@ router.get('/wallets', async (req, res) => {
 router.get('/wallets/:id/resources', async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id <= 0) {
-    return res.status(400).json({ error: '地址 ID 无效' });
+    return res.status(400).json({ error: msg(req.lang || 'zh-CN', '地址 ID 无效', 'Invalid address ID') });
   }
 
   const rows = await query(
@@ -157,7 +158,7 @@ router.get('/wallets/:id/resources', async (req, res) => {
       WHERE id=? AND user_id=? AND is_active=1 LIMIT 1`,
     [id, req.miniUser.id]
   );
-  if (!rows.length) return res.status(404).json({ error: '地址不存在' });
+  if (!rows.length) return res.status(404).json({ error: msg(req.lang || 'zh-CN', '地址不存在', 'Address not found') });
 
   try {
     const [account, usdt] = await Promise.all([
@@ -177,7 +178,7 @@ router.get('/wallets/:id/resources', async (req, res) => {
       freeNetUsed: account.freeNetUsed
     });
   } catch {
-    res.status(502).json({ error: '链上查询暂时不可用，请稍后重试' });
+    res.status(502).json({ error: msg(req.lang || 'zh-CN', '链上查询暂时不可用，请稍后重试', 'Chain query temporarily unavailable; try again later') });
   }
 });
 
