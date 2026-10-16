@@ -251,13 +251,13 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
 
   <div class="section"><h2>{{ tr("svcTitle") }}</h2><span class="sub">{{ tr("svcLive") }}</span></div>
   <div class="grid">
-    <div class="card"><div class="label">监听地址</div><div class="value">{{ wallets.length }}</div><div class="unit">{{ tr("cardWalletsUnit") }}</div></div>
+    <div class="card"><div class="label">{{ tr("cardWallets") }}</div><div class="value">{{ wallets.length }}</div><div class="unit">{{ tr("cardWalletsUnit") }}</div></div>
     <div class="card"><div class="label">{{ tr("cardEnergy") }}</div><div class="value" style="font-size:17px">{{ me?.capabilities?.energyProviderConfigured ? tr("cardEnergyReady") : tr("cardEnergyNotReady") }}</div><div class="unit">{{ tr("cardEnergyUnit") }}</div></div>
   </div>
 
   <div class="section"><h2>{{ tr("mgmt") }}</h2><button class="btn" @click="refresh" :disabled="loading">{{ loading ? tr("refreshing") : "↻ " + tr("refresh") }}</button></div>
   <div class="tabs">
-    <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">我的地址</button>
+    <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">{{ tr("tabWallets") }}</button>
     <button class="tab" :class="{active:tab==='transactions'}" @click="tab='transactions';loadTransactions()">{{ tr("tabTx") }}</button>
     <button class="tab" :class="{active:tab==='orders'}" @click="tab='orders';loadOrders()">{{ tr("tabOrders") }}</button>
   </div>
@@ -267,13 +267,13 @@ h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
     <div v-if="!wallets.length && !loading" class="empty">{{ tr("emptyWallets") }}</div>
     <div class="list">
       <div class="item" v-for="w in wallets" :key="w.id">
-        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?tr('labelDeposit'):tr('labelMonitor')) }}</strong><span class="tag">{{ w.wallet_type==='deposit'?'充值地址':'监控地址' }}</span></div>
+        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?tr('labelDeposit'):tr('labelMonitor')) }}</strong><span class="tag">{{ w.wallet_type==='deposit'?tr('labelDeposit'):tr('labelMonitor') }}</span></div>
         <div class="address">{{ w.address }}</div>
         <div class="sub" style="margin-top:8px">{{ tr("lastScan") }}{{ w.last_scanned_at || tr("noScan") }}</div>
         <div class="actions"><button class="btn primary" @click="loadResources(w)">{{ tr("queryChain") }}</button></div>
         <div v-if="resourceFor===w.id && resource" class="grid" style="margin-top:12px">
           <div class="card"><div class="label">{{ tr("trxBalance") }}</div><div class="value">{{ resource.trx }}</div><div class="unit">TRX</div></div>
-          <div class="card"><div class="label">{{ tr("usdtBalance") }}</div><div class="value">{{ resource.usdt ?? '查询不可用' }}</div><div class="unit">TRC20</div></div>
+          <div class="card"><div class="label">{{ tr("usdtBalance") }}</div><div class="value">{{ resource.usdt ?? tr('noScan') }}</div><div class="unit">TRC20</div></div>
           <div class="card"><div class="label">{{ tr("energyLabel") }}</div><div class="value">{{ resource.energyLimit ?? 0 }}</div><div class="unit">{{ tr("usedLabel") }} {{ resource.energyUsed ?? 0 }}</div></div>
           <div class="card">
             <div class="label">{{ tr("bandwidthLabel") }}</div>
