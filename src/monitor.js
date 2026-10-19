@@ -104,6 +104,21 @@ function normalizeTrc20(response, wallet) {
 }
 
 async function saveTransfer(wallet, t, type) {
+
+  // [AUTO-CREDIT] 自动充值入账逻辑
+  if (type === 'deposit' && Number(t.amount) > 0) {
+    try {
+      const { creditRecharge } = require('./ledger');
+      const res = await creditRecharge(wallet.user_id, Number(t.amount), t.tx_hash);
+      if (res && res.credited) {
+        console.log('[Monitor] 自动入账成功:', t.tx_hash);
+        const { sendTelegramMessage } = require('./notifier');
+        const userRow = await query('SELECT telegram_id FROM users WHERE id = ?', [wallet.user_id]);
+        if (userRow.length) await sendTelegramMessage(userRow[0].telegram_id, `💰 充值到账！\n金额：${t.amount} USDT\nHash：${t.tx_hash}`);
+      }
+    } catch (e) { console.error('[Monitor] 入账异常:', e.message); }
+  }
+
   const conn = await pool.getConnection();
   let rechargeId = null;
   let inserted = false;

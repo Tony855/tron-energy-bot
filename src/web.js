@@ -887,3 +887,55 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+
+// ------------------ 后台管理：能量订单操作 ------------------
+app.get('/api/admin/energy-orders', async (req, res) => {
+  try {
+    const orders = await query(`
+      SELECT eo.*, u.telegram_id, u.username 
+      FROM energy_orders eo 
+      LEFT JOIN users u ON eo.user_id = u.id 
+      ORDER BY eo.id DESC LIMIT 100
+    `);
+    res.json({ success: true, data: orders });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/energy-orders/:id/complete', async (req, res) => {
+  try {
+    const { txHash } = req.body;
+    const orderId = req.params.id;
+    await query('UPDATE energy_orders SET status = ?, tx_hash = ? WHERE id = ?', ['completed', txHash || 'manual', orderId]);
+    res.json({ success: true, message: '订单已标记为完成' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/energy-orders/:id/refund', async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const orders = await query('SELECT * FROM energy_orders WHERE id = ?', [orderId]);
+    if (!orders.length) return res.status(404).json({ error: '订单不存在' });
+    const order = orders[0];
+    if (order.status === 'refunded') return res.status(400).json({ error: '订单已退款' });
+    
+    await query('UPDATE users SET balance = balance + ? WHERE id = ?', [order.quoted_price, order.user_id]);
+    await query('UPDATE energy_orders SET status = ? WHERE id = ?', ['refunded', orderId]);
+    res.json({ success: true, message: '已退款到用户余额' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// [error-handler] 全局错误兜底：不返回栈信息
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  console.error('[unhandled]', req.method, req.originalUrl, err && err.message);
+  const code = err && Number(err.status) >= 400 && Number(err.status) < 600 ? Number(err.status) : 500;
+  res.status(code).json({ error: '服务器内部错误，请稍后重试或查看日志' });
+});
+
+module.exports = app;
