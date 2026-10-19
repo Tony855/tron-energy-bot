@@ -1,463 +1,344 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0b1220">
-<title>TRON Energy Center</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<style>
-:root {
-  color-scheme: dark;
-  --bg: #0b1120;
-  --surface: #121b2b;
-  --surface2: #182438;
-  --line: #27364b;
-  --muted: #91a1b8;
-  --text: #edf3fc;
-  --accent: #56d6ad;
-  --accent-soft: #16392f;
-  --blue: #86b4ff;
-  --danger: #ff8b96;
-  --radius: 17px;
-}
-* { box-sizing: border-box; }
-html {
-  background: var(--bg);
-  -webkit-text-size-adjust: 100%;
-  scroll-behavior: smooth;
-}
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  -webkit-font-smoothing: antialiased;
-}
-button { font: inherit; cursor: pointer; touch-action: manipulation; }
-button:disabled { opacity: .55; cursor: wait; }
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
-#app {
-  width: min(100%, 620px);
-  margin: 0 auto;
-  padding: calc(20px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom));
-}
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 26px;
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 17px;
-  font-weight: 750;
-  letter-spacing: -.2px;
-}
-.logo {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  border-radius: 14px;
-  background: var(--accent);
-  color: #08261d;
-  font-size: 25px;
-  font-weight: 900;
-}
-.pill {
-  font-size: 11px;
-  color: #83e8c2;
-  background: #15362e;
-  border: 1px solid #285847;
-  border-radius: 999px;
-  padding: 6px 10px;
-  white-space: nowrap;
-}
-.hello { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
-.sub { color: var(--muted); font-size: 12px; }
-.balance {
-  padding: 23px 21px;
-  border-radius: var(--radius);
-  background: #142338;
-  border: 1px solid #2b4058;
-  box-shadow: 0 10px 28px rgba(0,0,0,.16);
-}
-.eyebrow { font-size: 12px; color: #a9bad0; letter-spacing: .2px; }
-.amount {
-  font-size: clamp(29px, 8vw, 37px);
-  font-weight: 800;
-  letter-spacing: -1px;
-  margin: 10px 0 7px;
-  overflow-wrap: anywhere;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-}
-.amount small { font-size: 13px; font-weight: 650; letter-spacing: 0; color: #b8c9dc; }
-.note { font-size: 11px; color: var(--muted); }
-.section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  margin: 25px 1px 12px;
-}
-h2 { font-size: 15px; font-weight: 750; margin: 0; letter-spacing: -.1px; }
-.grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-.card, .item {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 15px;
-  padding: 15px;
-  min-width: 0;
-}
-.card .label { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-.value {
-  font-size: clamp(18px, 4.8vw, 22px);
-  font-weight: 750;
-  overflow-wrap: anywhere;
-  line-height: 1.35;
-  font-variant-numeric: tabular-nums;
-}
-.unit { font-size: 11px; color: var(--muted); margin-top: 5px; }
-.list { display: grid; gap: 10px; }
-.item { padding: 16px; }
-.itemtop { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
-.itemtop strong { font-size: 14px; overflow-wrap: anywhere; }
-.address {
-  font: 12px/1.65 ui-monospace, SFMono-Regular, Menlo, monospace;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  color: #d7e5f7;
-  background: #0c1422;
-  border: 1px solid #25354a;
-  border-radius: 10px;
-  padding: 11px;
-  margin-top: 11px;
-}
-.tag {
-  font-size: 10px;
-  padding: 5px 8px;
-  border-radius: 8px;
-  background: #1a2b40;
-  color: #b9d1f3;
-  white-space: nowrap;
-  border: 1px solid #2b4058;
-}
-.actions { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
-.btn {
-  border: 1px solid #30445d;
-  border-radius: 11px;
-  padding: 10px 14px;
-  background: var(--surface2);
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 650;
-  min-height: 40px;
-  transition: background .15s ease, border-color .15s ease;
-}
-.btn:active, .tab:active { transform: scale(.985); }
-.btn.primary {
-  background: var(--accent-soft);
-  border-color: #28634f;
-  color: #9bf0ce;
-}
-.btn.primary:hover { background: #1b493b; }
-.tabs {
-  display: grid;
-  grid-template-columns: repeat(3,minmax(0,1fr));
-  gap: 7px;
-  padding: 3px 0 8px;
-}
-.tab {
-  min-width: 0;
-  background: #121b2b;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  padding: 11px 5px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-.tab.active {
-  background: var(--accent-soft);
-  border-color: #34765e;
-  color: #a0f4d2;
-}
-.empty, .error {
-  padding: 25px 16px;
-  text-align: center;
-  background: var(--surface);
-  border: 1px dashed #304056;
-  border-radius: 15px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.error { color: var(--danger); border-color: #603b45; }
-.footer {
-  text-align: center;
-  color: #73849d;
-  font-size: 11px;
-  padding: 25px 0 8px;
-}
-.hash {
-  font-size: 11px;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  color: #9bb5d6;
-  margin-top: 8px;
-}
-@media (min-width: 480px) {
-  #app { padding-left: 22px; padding-right: 22px; }
-  .balance { padding: 26px; }
-}
-@media (max-width: 360px) {
-  #app { padding-left: 11px; padding-right: 11px; }
-  .balance { padding: 18px; }
-  .card, .item { padding: 12px; }
-  .tab { font-size: 11px; }
-  .pill { font-size: 10px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    scroll-behavior: auto !important;
-    transition: none !important;
-  }
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TRON Energy</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a; --card-bg: #1e293b; --text: #f8fafc; --text-muted: #94a3b8;
+      --primary: #3b82f6; --primary-hover: #2563eb; --danger: #ef4444; --border: #334155;
+    }
+    body {
+      margin: 0; padding: 0; background-color: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      padding-bottom: 20px;
+    }
+    #app { max-width: 600px; margin: 0 auto; padding: 15px; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .logo { width: 40px; height: 40px; background: #10b981; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #fff; }
+    .title-area h1 { margin: 0; font-size: 16px; }
+    .title-area p { margin: 2px 0 0 0; font-size: 12px; color: var(--text-muted); }
+    .secure-pill { font-size: 11px; background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 4px 8px; border-radius: 20px; }
+    
+    .card { background-color: var(--card-bg); border-radius: 12px; padding: 15px; margin-bottom: 15px; border: 1px solid var(--border); }
+    .card-title { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; }
+    .balance-value { font-size: 28px; font-weight: bold; margin-bottom: 5px; }
+    .balance-unit { font-size: 14px; color: var(--text-muted); }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+    .stat-card { background-color: var(--card-bg); border-radius: 12px; padding: 15px; border: 1px solid var(--border); }
+    .stat-value { font-size: 20px; font-weight: bold; margin: 10px 0; }
+    
+    .input-group { margin-bottom: 10px; }
+    .input-group input, .input-group select {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+      background: #0f172a; color: var(--text); font-size: 14px; box-sizing: border-box;
+    }
+    .btn {
+      width: 100%; padding: 10px; border-radius: 8px; border: none; font-size: 14px;
+      font-weight: bold; cursor: pointer; text-align: center; transition: background 0.2s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:active { background: var(--primary-hover); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+    .tab {
+      flex: 1; padding: 10px; text-align: center; background: var(--card-bg); 
+      border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid var(--border);
+    }
+    .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    
+    .item { background: var(--card-bg); border-radius: 8px; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); }
+    .item-top { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    
+    .error-box { color: #f87171; background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 8px; font-size: 13px; text-align: center; margin-bottom: 15px; word-break: break-all; }
+  </style>
 </head>
 <body>
-<div id="app">
-  <div class="top">
-    <div class="brand"><div class="logo">ϟ</div><div>{{ tr("brandTitle") }}<div class="sub" style="margin-top:3px">{{ tr("brandSub") }}</div></div></div>
-    <span class="pill">{{ tr("securePill") }}</span>
-  </div>
-
-  <p class="hello">{{ tr("hello") }}，{{ me?.user?.firstName || tr("home") }}</p>
-
-  <section class="balance">
-    <div class="eyebrow">{{ tr("balanceTitle") }}</div>
-    <div class="amount">{{ me ? Number(me.user.balance).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:6}) : '—' }} <small>USDT</small></div>
-    <div class="note">{{ tr("balanceNote") }}</div>
-  </section>
-
-  <div class="section"><h2>{{ tr("svcTitle") }}</h2><span class="sub">{{ tr("svcLive") }}</span></div>
-  <div class="grid">
-    <div class="card"><div class="label">{{ tr("cardWallets") }}</div><div class="value">{{ wallets.length }}</div><div class="unit">{{ tr("cardWalletsUnit") }}</div></div>
-    <div class="card"><div class="label">{{ tr("cardEnergy") }}</div><div class="value" style="font-size:17px">{{ me?.capabilities?.energyProviderConfigured ? tr("cardEnergyReady") : tr("cardEnergyNotReady") }}</div><div class="unit">{{ tr("cardEnergyUnit") }}</div></div>
-  </div>
-
-  <div class="section"><h2>{{ tr("mgmt") }}</h2><button class="btn" @click="refresh" :disabled="loading">{{ loading ? tr("refreshing") : "↻ " + tr("refresh") }}</button></div>
-  <div class="tabs">
-    <button class="tab" :class="{active:tab==='wallets'}" @click="tab='wallets'">{{ tr("tabWallets") }}</button>
-    <button class="tab" :class="{active:tab==='transactions'}" @click="tab='transactions';loadTransactions()">{{ tr("tabTx") }}</button>
-    <button class="tab" :class="{active:tab==='orders'}" @click="tab='orders';loadOrders()">{{ tr("tabOrders") }}</button>
-  </div>
-
-  <div v-if="error" class="error">{{ error }}</div>
-  <template v-if="tab==='wallets'">
-    <div v-if="!wallets.length && !loading" class="empty">{{ tr("emptyWallets") }}</div>
-    <div class="list">
-      <div class="item" v-for="w in wallets" :key="w.id">
-        <div class="itemtop"><strong>{{ w.label || (w.wallet_type==='deposit'?tr('labelDeposit'):tr('labelMonitor')) }}</strong><span class="tag">{{ w.wallet_type==='deposit'?tr('labelDeposit'):tr('labelMonitor') }}</span></div>
-        <div class="address">{{ w.address }}</div>
-        <div class="sub" style="margin-top:8px">{{ tr("lastScan") }}{{ w.last_scanned_at || tr("noScan") }}</div>
-        <div class="actions"><button class="btn primary" @click="loadResources(w)">{{ tr("queryChain") }}</button></div>
-        <div v-if="resourceFor===w.id && resource" class="grid" style="margin-top:12px">
-          <div class="card"><div class="label">{{ tr("trxBalance") }}</div><div class="value">{{ resource.trx }}</div><div class="unit">TRX</div></div>
-          <div class="card"><div class="label">{{ tr("usdtBalance") }}</div><div class="value">{{ resource.usdt ?? tr('noScan') }}</div><div class="unit">TRC20</div></div>
-          <div class="card"><div class="label">{{ tr("energyLabel") }}</div><div class="value">{{ resource.energyLimit ?? 0 }}</div><div class="unit">{{ tr("usedLabel") }} {{ resource.energyUsed ?? 0 }}</div></div>
-          <div class="card">
-            <div class="label">{{ tr("bandwidthLabel") }}</div>
-            <div class="value">{{ (Number(resource.netLimit)||0) + (Number(resource.freeNetLimit)||0) }}</div>
-            <div class="unit">{{ tr("usedLabel") }} {{ (Number(resource.netUsed)||0) + (Number(resource.freeNetUsed)||0) }}</div>
-          </div>
+  <div id="app" v-cloak>
+    <!-- 顶部 Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">⚡</div>
+        <div class="title-area">
+          <h1>{{ tr('brandTitle') }}</h1>
+          <p>{{ tr('brandSub') }}</p>
         </div>
       </div>
+      <div class="secure-pill">{{ tr('securePill') }}</div>
     </div>
-  </template>
 
-  <template v-if="tab==='transactions'">
-    <div v-if="!transactions.length" class="empty">{{ tr("emptyTx") }}</div>
-    <div class="list"><div class="item" v-for="(t,i) in transactions" :key="t.tx_hash+'-'+t.event_index">
-      <div class="itemtop"><strong>{{ t.amount }} <small>{{ tr("tokenUnit") }}</small></strong><span class="tag">{{ Number(t.confirmed)===1?tr('txConfirmed'):tr('txPending') }}</span></div>
-      <div class="sub" style="margin-top:9px">{{ tr("addressLabel") }}{{ short(t.wallet_address) }}</div>
-      <div class="hash">{{ tr("txHashLabel") }}{{ t.tx_hash }}</div>
-      <div class="sub" style="margin-top:7px">{{ time(t.block_timestamp) }}</div>
-    </div></div>
-  </template>
+    <!-- 错误提示 -->
+    <div v-if="error" class="error-box">{{ error }}</div>
 
-  <template v-if="tab==='orders'">
-    <div v-if="!orders.length" class="empty">{{ tr("emptyOrders") }}</div>
-    <div class="list"><div class="item" v-for="o in orders" :key="o.id">
-      <div class="itemtop"><strong>{{ tr("orderPrefix") }}{{ o.id }}</strong><span class="tag">{{ statusText(o.status) }}</span></div>
-      <div class="address">{{ tr("orderReceiver") }}{{ o.receiver_address }}</div>
-      <div class="sub" style="margin-top:8px">{{ o.energy_amount }} {{ tr("orderEnergy") }} · {{ o.duration_minutes }} {{ tr("orderDuration") }}</div>
-      <div class="sub" style="margin-top:5px">{{ tr("orderQuote") }}{{ o.quoted_price }} {{ o.currency }}</div>
-    </div></div>
-    <div class="empty">{{ tr("orderNote") }}</div>
-  </template>
+    <!-- 余额卡片 -->
+    <div class="card">
+      <div class="card-title">{{ tr('balanceTitle') }}</div>
+      <div class="balance-value" v-if="me && me.user">
+        {{ Number(me.user.balance).toFixed(2) }} <span class="balance-unit">USDT</span>
+      </div>
+      <div class="balance-value" v-else>--</div>
+      <div style="font-size: 12px; color: var(--text-muted);">{{ tr('balanceNote') }}</div>
+    </div>
 
-  <div class="footer">{{ tr("footer") }}<br>{{ tr("footerWarn") }}</div>
-</div>
+    <!-- 数据卡片 -->
+    <div class="grid-2">
+      <div class="stat-card">
+        <div class="card-title">{{ tr('cardWallets') }}</div>
+        <div class="stat-value">{{ wallets.length }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="card-title">{{ tr('cardEnergy') }}</div>
+        <div class="stat-value" style="color: #f59e0b;">{{ tr('cardEnergyNotReady') }}</div>
+      </div>
+    </div>
 
-<script>
+    <!-- 标签切换 -->
+    <div class="tabs">
+      <div class="tab" :class="{active: tab === 'wallets'}" @click="tab = 'wallets'">{{ tr('tabWallets') }}</div>
+      <div class="tab" :class="{active: tab === 'orders'}" @click="tab = 'orders'; loadOrders()">{{ tr('tabOrders') }}</div>
+    </div>
 
-const I18N = {
-  'zh-CN': {
-    brandTitle: 'TRON 能量中心',
-    brandSub: '监听 · 资源 · 交易',
-    hello: '你好',
-    balanceTitle: '账户可用余额',
-    balanceNote: '余额以系统账本为准 · 链上资产独立显示',
-    svcTitle: '服务概览',
-    svcLive: '实时请求',
-    cardWallets: '监听地址',
-    cardWalletsUnit: '已启用地址',
-    cardEnergy: '能量服务',
-    cardEnergyNotReady: '暂未开通',
-    cardEnergyReady: '已配置',
-    cardEnergyUnit: '供应商状态',
-    mgmt: '管理中心',
-    refresh: '刷新数据',
-    refreshing: '刷新中…',
-    tabWallets: '我的地址',
-    tabTx: '交易记录',
-    tabOrders: '能量订单',
-    labelDeposit: '充值地址',
-    labelMonitor: '监控地址',
-    lastScan: '最后扫描：',
-    noScan: '暂无记录',
-    queryChain: '查询链上资源',
-    trxBalance: 'TRX 余额',
-    usdtBalance: 'USDT 余额',
-    energyLabel: '能量',
-    bandwidthLabel: '带宽',
-    usedLabel: '已使用',
-    emptyWallets: '暂无启用的监听地址，请先在机器人中添加。',
-    historyIn: '收款记录',
-    historyOut: '付款记录',
-    refreshBtn: '刷新',
-    otherAddr: '其他地址',
-    backWallet: '返回监听管理',
-    home: '主菜单',
-    emptyTx: '暂无已入库交易记录。',
-    emptyOrders: '暂无能量订单。',
-    orderReceiver: '接收地址：',
-    orderEnergy: '能量',
-    orderDuration: '分钟',
-    orderQuote: '报价：',
-    footer: 'TRON Energy · Telegram Mini App',
-    footerWarn: '请勿向任何人提供私钥或助记词',
-    securePill: '● 安全连接',
-    tokenUnit: '代币单位',
-    txConfirmed: '已确认',
-    txPending: '待确认',
-    addressLabel: '地址：',
-    txHashLabel: '交易哈希：',
-    orderNote: '当前页面只展示订单，不会发起购买或扣款。',
-    orderPrefix: '订单 #',
-    wallet: '钱包',
-  },
-  'en': {
-    brandTitle: 'TRON Energy Center',
-    brandSub: 'Monitoring · Resources · Transactions',
-    hello: 'Hi',
-    balanceTitle: 'Available Balance',
-    balanceNote: 'Balance per system ledger · on-chain assets shown separately',
-    svcTitle: 'Overview',
-    svcLive: 'Live',
-    cardWallets: 'Monitored',
-    cardWalletsUnit: 'Active addresses',
-    cardEnergy: 'Energy Service',
-    cardEnergyNotReady: 'Not configured',
-    cardEnergyReady: 'Configured',
-    cardEnergyUnit: 'Provider status',
-    mgmt: 'Management',
-    refresh: 'Refresh',
-    refreshing: 'Refreshing…',
-    tabWallets: 'My Addresses',
-    tabTx: 'Transactions',
-    tabOrders: 'Energy Orders',
-    labelDeposit: 'Deposit',
-    labelMonitor: 'Monitoring',
-    lastScan: 'Last scan: ',
-    noScan: 'none',
-    queryChain: 'Query on-chain',
-    trxBalance: 'TRX Balance',
-    usdtBalance: 'USDT Balance',
-    energyLabel: 'Energy',
-    bandwidthLabel: 'Bandwidth',
-    usedLabel: 'Used',
-    emptyWallets: 'No active monitored address. Add one via the bot.',
-    historyIn: 'Received',
-    historyOut: 'Sent',
-    refreshBtn: 'Refresh',
-    otherAddr: 'Other',
-    backWallet: 'Back',
-    home: 'Menu',
-    emptyTx: 'No transactions yet.',
-    emptyOrders: 'No energy orders yet.',
-    orderReceiver: 'Receiver: ',
-    orderEnergy: 'Energy',
-    orderDuration: 'min',
-    orderQuote: 'Quote: ',
-    footer: 'TRON Energy · Telegram Mini App',
-    footerWarn: 'Never share your private key or seed phrase',
-    securePill: '● Secure',
-    tokenUnit: 'token',
-    txConfirmed: 'confirmed',
-    txPending: 'pending',
-    addressLabel: 'Address: ',
-    txHashLabel: 'Tx: ',
-    orderNote: 'This page only displays orders; no purchase or charge is made here.',
-    orderPrefix: 'Order #',
-    wallet: 'Wallet',
-  }
-};
+    <!-- 钱包与购买页面 -->
+    <div v-show="tab === 'wallets'">
+      <!-- 1. 绑定钱包 -->
+      <div class="card">
+        <div class="card-title" style="color: #60a5fa;">🔗 {{ tr('bindWalletTitle') }}</div>
+        
+        <div v-if="me && me.tron_wallet_address" style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+          <div style="font-size: 12px; color: var(--text-muted);">{{ tr('currentBound') }}</div>
+          <div style="font-family: monospace; margin: 5px 0; font-size: 14px; word-break: break-all;">{{ me.tron_wallet_address }}</div>
+          <button class="btn btn-danger" @click="unbindWallet">{{ tr('unbindBtn') }}</button>
+        </div>
 
-const {createApp}=Vue;
-createApp({
- data(){return {me:null,wallets:[],transactions:[],orders:[],tab:'wallets',loading:false,error:'',resourceFor:null,resource:null,lang:'zh-CN'}},
- async mounted(){
-   if(!window.Telegram?.WebApp){this.error='请在 Telegram 机器人内打开此应用。';return}
-   Telegram.WebApp.ready();Telegram.WebApp.expand();
-   try{const m=await this.api('/me');this.lang=(m&&m.lang)||'zh-CN';this.me=m;const w=await this.api('/wallets');this.wallets=w.wallets||[]}catch(e){this.error=e.message}
- },
- methods:{
-  tr(k){const t=(I18N[this.lang]||I18N['zh-CN']);return t[k]||(I18N['zh-CN'][k]||k)},
-  async api(path){
-   const initData=window.Telegram?.WebApp?.initData||'';
-   const r=await fetch('/api/miniapp'+path,{headers:{'X-Telegram-Init-Data':initData,'Accept':'application/json'},cache:'no-store'});
-   const d=await r.json().catch(()=>({error:'服务器返回格式无效'}));
-   if(!r.ok)throw Error(d.error||'请求失败');
-   return d
-  },
-  async refresh(){
-   this.loading=true;this.error='';
-   try{const [m,w]=await Promise.all([this.api('/me'),this.api('/wallets')]);this.me=m;this.wallets=w.wallets||[]}
-   catch(e){this.error=e.message;throw e}
-   finally{this.loading=false}
-  },
-  async loadTransactions(){this.error='';try{this.transactions=(await this.api('/transactions')).transactions||[]}catch(e){this.error=e.message}},
-  async loadOrders(){this.error='';try{this.orders=(await this.api('/energy-orders')).orders||[]}catch(e){this.error=e.message}},
-  async loadResources(w){
-   this.error='';this.resourceFor=w.id;this.resource=null;
-   try{this.resource=await this.api('/wallets/'+w.id+'/resources')}catch(e){this.error=e.message}
-  },
-  short(s){return s?String(s).slice(0,10)+'…'+String(s).slice(-6):'—'},
-  time(v){if(!v)return '时间未知';const n=Number(v);const d=new Date(n<1e12?n*1000:n);return Number.isNaN(d.getTime())?'时间未知':d.toLocaleString()},
-  statusText(s){return ({pending_provider:'等待供应商',processing:'处理中',completed:'已完成',failed:'失败',refunded:'已退款'})[s]||s}
- }
-}).mount('#app');
-</script>
+        <div v-else>
+          <div class="input-group">
+            <input type="text" v-model="bindInput" :placeholder="tr('bindPlaceholder')">
+          </div>
+          <button class="btn btn-primary" @click="submitBindWallet" :disabled="binding">
+            {{ binding ? '...' : tr('bindBtn') }}
+          </button>
+          <div v-if="bindError" style="color: #ef4444; font-size: 12px; margin-top: 8px;">{{ bindError }}</div>
+        </div>
+      </div>
+
+      <!-- 2. 购买能量 -->
+      <div class="card" style="border-color: #3b82f6;">
+        <div class="card-title" style="color: #3b82f6; font-size: 14px; font-weight: bold;">⚡ {{ tr('buyEnergyTitle') }}</div>
+        
+        <div class="input-group">
+          <input type="text" v-model="buyForm.address" :placeholder="tr('buyReceiverPlaceholder')">
+        </div>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <select v-model="buyForm.amount" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0f172a; color: var(--text);">
+            <option :value="65000">65,000 Energy</option>
+            <option :value="131000">131,000 Energy</option>
+            <option :value="1000000">1,000,000 Energy</option>
+          </select>
+          <select v-model="buyForm.duration" style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0f172a; color: var(--text);">
+            <option :value="1">1 Min</option>
+            <option :value="60">1 Hour</option>
+            <option :value="1440">1 Day</option>
+          </select>
+        </div>
+        
+        <button class="btn btn-primary" @click="submitBuyEnergy">{{ tr('buyBtn') }}</button>
+      </div>
+
+      <!-- 3. 监听地址列表 -->
+      <div class="card-title" style="margin-top: 20px;">{{ tr('myAddresses') }}</div>
+      <div v-if="wallets.length === 0" style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">
+        {{ tr('emptyWallets') }}
+      </div>
+      <div v-for="w in wallets" :key="w.id" class="item">
+        <div class="item-top">
+          <strong>{{ w.label || w.wallet_type }}</strong>
+          <span class="tag">{{ w.wallet_type }}</span>
+        </div>
+        <div style="font-family: monospace; font-size: 13px;">{{ w.address }}</div>
+      </div>
+    </div>
+
+    <!-- 订单历史页面 -->
+    <div v-show="tab === 'orders'">
+      <div v-if="orders.length === 0" style="text-align: center; color: var(--text-muted); font-size: 13px; padding: 20px 0;">
+        {{ tr('emptyOrders') }}
+      </div>
+      <div v-for="o in orders" :key="o.id" class="item">
+        <div class="item-top">
+          <strong>Order #{{ o.id }}</strong>
+          <span class="tag" :style="{ background: o.status === 'completed' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)', color: o.status === 'completed' ? '#10b981' : '#f59e0b' }">{{ o.status }}</span>
+        </div>
+        <div style="font-size: 13px; margin-bottom: 4px;">{{ tr('orderReceiver') }} {{ o.receiver_address }}</div>
+        <div style="font-size: 12px; color: var(--text-muted);">{{ o.energy_amount }} Energy · {{ o.duration_minutes }} mins</div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">{{ tr('orderQuote') }} {{ o.quoted_price }} {{ o.currency }}</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+    
+    // 语言字典
+    const I18N = {
+      'zh-CN': {
+        brandTitle: 'TRON 能量中心', brandSub: '监听 · 资源 · 交易', securePill: '● 安全连接',
+        balanceTitle: '账户可用余额', balanceNote: '余额以系统账本为准 · 链上资产独立显示',
+        cardWallets: '监听地址', cardEnergy: '能量服务', cardEnergyNotReady: '暂未开通',
+        tabWallets: '我的地址', tabOrders: '能量订单',
+        bindWalletTitle: '绑定您的 TRON 接收地址', currentBound: '当前已绑定：',
+        unbindBtn: '解绑', bindPlaceholder: 'T开头的TRON地址', bindBtn: '绑定',
+        buyEnergyTitle: '闪租能量', buyReceiverPlaceholder: '输入接收能量的 TRON 地址', buyBtn: '确认购买',
+        myAddresses: '我的监听地址', emptyWallets: '暂无启用的监听地址。', emptyOrders: '暂无能量订单。',
+        orderReceiver: '接收地址：', orderQuote: '报价：'
+      },
+      'en': {
+        brandTitle: 'TRON Energy Center', brandSub: 'Monitoring · Resources · Transactions', securePill: '● Secure',
+        balanceTitle: 'Available Balance', balanceNote: 'Balance per system ledger',
+        cardWallets: 'Monitored', cardEnergy: 'Energy Service', cardEnergyNotReady: 'Not configured',
+        tabWallets: 'My Addresses', tabOrders: 'Energy Orders',
+        bindWalletTitle: 'Bind TRON Wallet', currentBound: 'Currently bound:',
+        unbindBtn: 'Unbind', bindPlaceholder: 'TRON address starting with T', bindBtn: 'Bind',
+        buyEnergyTitle: 'Buy Energy', buyReceiverPlaceholder: 'Receiver TRON Address', buyBtn: 'Confirm Purchase',
+        myAddresses: 'My Monitored Addresses', emptyWallets: 'No active addresses.', emptyOrders: 'No energy orders yet.',
+        orderReceiver: 'Receiver: ', orderQuote: 'Quote: '
+      }
+    };
+
+    createApp({
+      data() {
+        return {
+          lang: 'zh-CN',
+          me: null,
+          wallets: [],
+          orders: [],
+          tab: 'wallets',
+          error: '',
+          
+          // 绑定相关
+          bindInput: '',
+          bindError: '',
+          binding: false,
+          
+          // 购买相关
+          buyForm: { address: '', amount: 65000, duration: 1 }
+        };
+      },
+      mounted() {
+        if (!window.Telegram?.WebApp) {
+          this.error = '请在 Telegram 机器人内打开此应用。';
+          return;
+        }
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+        this.refresh();
+      },
+      methods: {
+        tr(key) {
+          const dict = I18N[this.lang] || I18N['zh-CN'];
+          return dict[key] || key;
+        },
+        async api(path, options = {}) {
+          const initData = window.Telegram?.WebApp?.initData || '';
+          const fetchOptions = {
+            ...options,
+            headers: {
+              'X-Telegram-Init-Data': initData,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              ...(options.headers || {})
+            },
+            cache: 'no-store'
+          };
+          const r = await fetch('/api/miniapp' + path, fetchOptions);
+          const d = await r.json().catch(() => ({ error: '服务器返回格式无效' }));
+          if (!r.ok) throw Error(d.error || '请求失败');
+          return d;
+        },
+        async refresh() {
+          this.error = '';
+          try {
+            const m = await this.api('/me');
+            this.lang = m.lang || 'zh-CN';
+            this.me = m;
+            
+            const w = await this.api('/wallets');
+            this.wallets = w.wallets || [];
+          } catch (e) {
+            this.error = e.message;
+          }
+        },
+        async submitBindWallet() {
+          this.bindError = '';
+          const addr = this.bindInput.trim();
+          if (!addr.startsWith('T') || addr.length !== 34) {
+            this.bindError = this.lang === 'en' ? 'Invalid TRON address' : '请输入正确的 TRON 地址（T开头，34位）';
+            return;
+          }
+          this.binding = true;
+          try {
+            await this.api('/bind-wallet', {
+              method: 'POST',
+              body: JSON.stringify({ walletAddress: addr })
+            });
+            Telegram.WebApp.showAlert(this.lang === 'en' ? '✅ Bind successful' : '✅ 钱包绑定成功');
+            this.bindInput = '';
+            await this.refresh();
+          } catch (e) {
+            this.bindError = e.message;
+          } finally {
+            this.binding = false;
+          }
+        },
+        async unbindWallet() {
+          if (!confirm(this.lang === 'en' ? 'Are you sure?' : '确定要解绑当前钱包吗？')) return;
+          try {
+            await this.api('/unbind-wallet', { method: 'POST' });
+            Telegram.WebApp.showAlert(this.lang === 'en' ? 'Unbound' : '已解绑');
+            await this.refresh();
+          } catch (e) {
+            Telegram.WebApp.showAlert(e.message);
+          }
+        },
+        async submitBuyEnergy() {
+          const addr = this.buyForm.address.trim();
+          if (!addr.startsWith('T') || addr.length !== 34) {
+            return Telegram.WebApp.showAlert(this.lang === 'en' ? 'Invalid address' : '无效的接收地址');
+          }
+          try {
+            await this.api('/buy-energy', {
+              method: 'POST',
+              body: JSON.stringify({
+                receiverAddress: addr,
+                energyAmount: this.buyForm.amount,
+                durationMinutes: this.buyForm.duration
+              })
+            });
+            Telegram.WebApp.showAlert(this.lang === 'en' ? 'Order placed' : '下单成功，正在处理');
+            this.buyForm.address = '';
+          } catch (e) {
+            Telegram.WebApp.showAlert(e.message);
+          }
+        },
+        async loadOrders() {
+          this.error = '';
+          try {
+            const res = await this.api('/energy-orders');
+            this.orders = res.orders || [];
+          } catch (e) {
+            this.error = e.message;
+          }
+        }
+      }
+    }).mount('#app');
+  </script>
 </body>
 </html>

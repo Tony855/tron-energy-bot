@@ -85,7 +85,7 @@ async function authenticate(req, res, next) {
     const raw = req.get('X-Telegram-Init-Data') || '';
     const verified = verifyInitData(raw);
     const rows = await query(
-      'SELECT id,telegram_id,username,first_name,balance,is_blocked,language FROM users WHERE telegram_id=? LIMIT 1',
+      'SELECT id,telegram_id,username,first_name,balance,is_blocked,language,tron_wallet_address FROM users WHERE telegram_id=? LIMIT 1',
       [verified.telegramId]
     );
 
@@ -131,7 +131,8 @@ router.get('/me', async (req, res) => {
       energyProviderConfigured: false,
       automaticCredit: false
     },
-    lang: req.lang
+    lang: req.lang,
+    tron_wallet_address: u.tron_wallet_address || null
   });
 });
 
@@ -208,6 +209,61 @@ router.get('/energy-orders', async (req, res) => {
   );
   res.set('Cache-Control', 'no-store');
   res.json({ orders: rows });
+});
+
+// ------------------ 绑定钱包功能 ------------------
+router.post('/bind-wallet', async (req, res) => {
+  try {
+    const { walletAddress } = req.body;
+    if (!walletAddress || !walletAddress.startsWith('T') || walletAddress.length !== 34) {
+      return res.status(400).json({ error: msg(req.lang || 'zh-CN', '无效的 TRON 地址格式', 'Invalid TRON address format') });
+    }
+
+    await query('UPDATE users SET tron_wallet_address = ? WHERE id = ?', [walletAddress, req.miniUser.id]);
+    return res.json({ success: true, message: msg(req.lang || 'zh-CN', '绑定成功', 'Bind successful') });
+  } catch (err) {
+    console.error('[API] bind-wallet error:', err);
+    return res.status(500).json({ error: msg(req.lang || 'zh-CN', '服务器内部错误', 'Internal server error') });
+  }
+});
+
+router.post('/unbind-wallet', async (req, res) => {
+  try {
+    await query('UPDATE users SET tron_wallet_address = NULL WHERE id = ?', [req.miniUser.id]);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[API] unbind-wallet error:', err);
+    return res.status(500).json({ error: msg(req.lang || 'zh-CN', '服务器内部错误', 'Internal server error') });
+  }
+});
+
+// ------------------ 购买能量功能 ------------------
+router.post('/buy-energy', async (req, res) => {
+  try {
+    const { receiverAddress, energyAmount, durationMinutes } = req.body;
+    const userId = req.miniUser.id;
+
+    if (!receiverAddress || receiverAddress.length !== 34) {
+      return res.status(400).json({ error: msg(req.lang, '接收地址无效', 'Invalid receiver address') });
+    }
+    const energy = Number(energyAmount);
+    if (!Number.isInteger(energy) || energy <= 0) {
+      return res.status(400).json({ error: msg(req.lang, '能量数量必须是正整数', 'Energy must be a positive integer') });
+    }
+    const price = (energy * 0.0001).toFixed(4);
+    if (Number(req.miniUser.balance) < Number(price)) {
+      return res.status(400).json({ error: msg(req.lang, '账户余额不足，请先充值', 'Insufficient balance') });
+    }
+    await query(
+      `INSERT INTO energy_orders (user_id, receiver_address, energy_amount, duration_minutes, quoted_price, currency, status) 
+       VALUES (?, ?, ?, ?, ?, 'USDT', 'pending')`,
+      [userId, receiverAddress, energy, durationMinutes || 1, price]
+    );
+    return res.json({ success: true, message: msg(req.lang, '下单成功', 'Order placed') });
+  } catch (err) {
+    console.error('[API] buy-energy error:', err);
+    return res.status(500).json({ error: msg(req.lang, '服务器错误', 'Server error') });
+  }
 });
 
 module.exports = router;
