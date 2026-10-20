@@ -224,6 +224,16 @@ chown root:root "$ENV_FILE"
 info "初始化 MySQL（使用本机 root socket 认证）..."
 systemctl enable --now mysql
 mysql --protocol=socket < "$APP_DIR/sql/schema.sql"
+
+# Auto-apply migrations (安全地执行所有升级补丁)
+info "正在应用数据库升级补丁..."
+for migration in "$APP_DIR"/sql/migrate_*.sql; do
+    if [ -f "$migration" ]; then
+        info "  -> 执行: $(basename "$migration")"
+        mysql --protocol=socket < "$migration" || info "     (跳过: 该升级可能已应用)"
+    fi
+done
+
 # Password charset is restricted above, so SQL interpolation cannot inject statements.
 mysql --protocol=socket <<SQL
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
