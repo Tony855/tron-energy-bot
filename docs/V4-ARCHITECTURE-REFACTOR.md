@@ -169,18 +169,18 @@ Implement a DB-backed inbox/outbox before adding more event providers.
 ## 9. Implementation snapshot (2026-11-11)
 
 Implemented on `refactor/v4-architecture`:
-- Runtime configuration validation, coordinated startup/shutdown, request IDs, liveness/readiness probes.
+- Runtime configuration validation, coordinated startup/shutdown, request IDs, liveness/readiness probes, and a startup schema guard that refuses to boot before V4 tables and energy-order enum states exist.
 - Additive MariaDB tables for event inbox, event outbox, and durable background jobs.
 - Signed TRON webhook acceptance: HMAC validation over raw bytes, deterministic transaction identity, Inbox persistence and job enqueue in one transaction, HTTP 202 only after commit.
 - Isolated worker re-fetches confirmed TRC20 events and validates receipt success, token contract, decimals, positive raw amount, and wallet ownership before indexing.
 - TRON recharge credit requires the verified receipt proof to match transaction hash, exact raw amount, successful receipt, configured contract (when set), and the order's assigned deposit wallet.
 - Transfer and recharge credit notifications are transactionally written to Outbox; Telegram and Socket.IO dispatchers use leases, retries, and dead-letter handling.
 - Legacy monitor auto-credit path removed; legacy direct-balance energy worker remains quarantined.
-- Energy order compare-and-set transition guard added; schema/migration add `submitting` and `submission_unknown` to support ambiguous provider submissions.
+- Energy order compare-and-set transition guard added; schema/migration add `submitting` and `submission_unknown`. Ambiguous submissions require reconciliation, completion requires verified fulfillment evidence, and refund transitions require a ledger posting.
 - Multi-provider quote router core added with circuit breaker; failover is permitted only after an adapter explicitly reports definitive non-acceptance.
 - No real supplier adapters are registered; Mini App energy purchasing remains disabled and fail-closed.
 - Admin energy refunds remain ledger-backed, idempotent, and restricted to confirmed failed orders.
-- CI run #162 passed Node.js 22 syntax checks and all 97 tests, including MariaDB 11.4 integration, migration idempotency, Inbox replay, queue lease recovery, Outbox lease recovery and dead letters.
+- CI run #172 passed Node.js 22 syntax checks and all 101 tests, including MariaDB 11.4 integration, migration idempotency, Inbox replay, queue lease recovery, Outbox lease recovery/dead letters, energy provider routing, order-state guards, and startup schema guard.
 
 ## 10. Remaining acceptance gates
 
