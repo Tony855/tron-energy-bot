@@ -31,7 +31,6 @@ function startLeaseHeartbeat({ renew, intervalMs, logger = console, label = 'lea
     async stop() {
       stopped = true;
       clearInterval(timer);
-      while (inFlight) await new Promise(resolve => setTimeout(resolve, 5));
       return lost;
     },
     isLost() { return lost; }
