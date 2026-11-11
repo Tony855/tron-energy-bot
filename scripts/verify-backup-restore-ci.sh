@@ -10,7 +10,7 @@ DB_PORT="${DB_PORT:-3306}"
 DB_USER="${DB_USER:-root}"
 DB_PASSWORD="${DB_PASSWORD:-root}"
 cleanup() {
-  MYSQL_PWD="$DB_PASSWORD" mysql --protocol=tcp -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -e "DROP DATABASE IF EXISTS `$DB_NAME`" >/dev/null 2>&1 || true
+  MYSQL_PWD="$DB_PASSWORD" mysql --protocol=tcp -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -e "DROP DATABASE IF EXISTS $DB_NAME" >/dev/null 2>&1 || true
   rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
@@ -39,9 +39,9 @@ ENV
 
 chmod 600 "$ENV_FILE" "$AGE_IDENTITY_FILE"
 MYSQL_PWD="$DB_PASSWORD" mysql --protocol=tcp -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" <<SQL
-CREATE DATABASE IF NOT EXISTS `$DB_NAME` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE TABLE `$DB_NAME`.users (id BIGINT PRIMARY KEY, marker VARCHAR(64) NOT NULL);
-INSERT INTO `$DB_NAME`.users (id, marker) VALUES (1, 'backup-restore-ci-fixture');
+CREATE DATABASE IF NOT EXISTS $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE TABLE $DB_NAME.users (id BIGINT PRIMARY KEY, marker VARCHAR(64) NOT NULL);
+INSERT INTO $DB_NAME.users (id, marker) VALUES (1, 'backup-restore-ci-fixture');
 SQL
 
 sudo env ENV_FILE="$ENV_FILE" APP_DIR="$APP_DIR" BACKUP_ROOT="$BACKUP_ROOT" bash "$ROOT_DIR/scripts/backup.sh"
