@@ -10,6 +10,7 @@ const { initSocket, closeSocket, publish } = require('./eventBridge');
 const { pool, closePool } = require('./db');
 const { createOutbox } = require('./outbox');
 const { loadConfig } = require('./config');
+const { assertV4Schema } = require('./schemaGuard');
 
 let server;
 let bot;
@@ -123,6 +124,7 @@ async function main() {
   const config = loadConfig();
   shutdownTimeoutMs = config.shutdownTimeoutMs;
   await pool.query('SELECT 1');
+  await assertV4Schema(pool);
 
   server = require('node:http').createServer(app);
   initSocket(server);
