@@ -299,6 +299,78 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const [deadRows] = await pool.execute('SELECT status,last_error_code FROM background_jobs WHERE id=?', [attemptOne.id]);
     assert.equal(deadRows[0].status, 'dead');
     assert.equal(deadRows[0].last_error_code, 'TEST_FINAL');
+
+    // Bounded burst test: concurrent claimers must never receive the same job.
+    // This database is disposable CI state; clear unrelated pending fixtures so
+    // the queue's intentionally global claim operation cannot affect assertions.
+    await pool.execute('DELETE FROM background_jobs');
+    const burstSize = 32;
+    const burstPrefix = 'integration-burst:' + suffix + ':';
+    await Promise.all(Array.from({ length: burstSize }, (_, index) =>
+      queue.enqueueJob({
+        type: 'test.burst',
+        payload: { index, suffix },
+        dedupeKey: burstPrefix + index
+      })
+    ));
+    const burstClaims = await Promise.all(
+      Array.from({ length: burstSize }, () => queue.claimJob({ leaseSeconds: 30 }))
+    );
+    assert.equal(burstClaims.filter(Boolean).length, burstSize);
+    assert.equal(new Set(burstClaims.map(job => String(job.id))).size, burstSize,
+      'parallel claimers must receive unique job IDs');
+    assert.equal(new Set(burstClaims.map(job => job.lease_token)).size, burstSize,
+      'parallel claimers must receive unique lease tokens');
+    const burstCompletions = await Promise.all(burstClaims.map(job =>
+      queue.completeJob({ id: job.id, leaseToken: job.lease_token })
+    ));
+    assert.equal(burstCompletions.filter(Boolean).length, burstSize);
+    const [burstStatus] = await pool.execute(
+      'SELECT status,COUNT(*) count FROM background_jobs WHERE dedupe_key LIKE ? GROUP BY status',
+      [burstPrefix + '%']
+    );
+    assert.equal(burstStatus.status, 'completed');
+    assert.equal(Number(burstStatus.count), burstSize);
+
+    // Exercise the same burst pattern for notification dispatch claims.
+    const outboxPrefix = 'integration-outbox-burst:' + suffix + ':';
+    const burstConn = await pool.getConnection();
+    try {
+      await burstConn.beginTransaction();
+      for (let index = 0; index < burstSize; index += 1) {
+        await outbox.enqueue(burstConn, {
+          eventKey: outboxPrefix + index,
+          aggregateType: 'test',
+          aggregateId: suffix,
+          eventType: 'test.burst.dispatch',
+          payload: { index, suffix }
+        });
+      }
+      await burstConn.commit();
+    } catch (error) {
+      await burstConn.rollback();
+      throw error;
+    } finally {
+      burstConn.release();
+    }
+    const outboxClaims = await Promise.all(
+      Array.from({ length: burstSize }, () => outbox.claim('test.burst.dispatch', 30))
+    );
+    assert.equal(outboxClaims.filter(Boolean).length, burstSize);
+    assert.equal(new Set(outboxClaims.map(event => String(event.id))).size, burstSize,
+      'parallel Outbox dispatchers must receive unique event IDs');
+    assert.equal(new Set(outboxClaims.map(event => event.lease_token)).size, burstSize,
+      'parallel Outbox dispatchers must receive unique lease tokens');
+    const outboxCompletions = await Promise.all(outboxClaims.map(event =>
+      outbox.delivered({ id: event.id, leaseToken: event.lease_token })
+    ));
+    assert.equal(outboxCompletions.filter(Boolean).length, burstSize);
+    const [outboxStatus] = await pool.execute(
+      'SELECT status,COUNT(*) count FROM event_outbox WHERE event_key LIKE ? GROUP BY status',
+      [outboxPrefix + '%']
+    );
+    assert.equal(outboxStatus.status, 'delivered');
+    assert.equal(Number(outboxStatus.count), burstSize);
   } finally {
     await pool.end();
   }
