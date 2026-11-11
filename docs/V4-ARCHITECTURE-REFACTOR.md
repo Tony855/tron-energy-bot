@@ -229,3 +229,10 @@ Supplier quote validity is rechecked immediately before every create-order call.
 The Debian/Ubuntu fresh installer now selects the configured `tron_energy` database explicitly for every migration. Historical one-time migrations remain best-effort because the current base schema already contains some of their later columns and indexes; the V4 durable queue migration is strict and aborts installation on failure. Before configuring or starting the service, the installer verifies all four required V4 tables and the `submission_unknown` / `cancelled` order states.
 
 CI additionally creates an isolated MariaDB database, applies the fresh schema and V4 migration twice, and verifies the required tables and enum values. This is an ephemeral CI rehearsal only; it does not run against production data or replace the production backup/restore and rollback rehearsal.
+
+
+## Existing-install V4 migration and rollback boundary
+
+The V3.4 upgrade path now applies `sql/migrate_v4_durable_queue.sql` after the V3.1/V3.3 compatibility steps and verifies all required tables plus the expanded `energy_orders.status` enum before stopping the running service or swapping releases. The migration is additive and idempotent; the old code release is retained for code rollback.
+
+A code rollback does **not** reverse the V4 database migration. The new enum values and queue tables are intentionally left in place because removing enum values can truncate or invalidate rows created after the new release starts. If a database-level rollback is required, stop all writers, preserve a fresh encrypted backup, and restore into an isolated database first; only perform a production restore after a separately approved recovery plan. CI simulates an existing pre-V4 database with a legacy order enum, seeds an existing order, applies V4 twice, and verifies the original row and status survive. It is not a production rollback rehearsal.
