@@ -163,3 +163,8 @@ The admin chain-verification route performs the external chain lookup before wri
 ## TRON event scanner matching controls
 
 The webhook worker, periodic monitor, and historical backfill must identify the configured USDT contract and wallet addresses by exact Base58Check string equality; do not lowercase Base58 values. Scanner/backfill paths fail closed when the trusted USDT contract is missing or token decimals differ from the configured precision. The worker resolves indexed wallets by exact address equality, preventing case-mutated addresses from being attached to a different wallet. These ingestion checks do not authorize credit: recharge credit still requires the separate confirmed-transfer proof check and ledger transaction.
+
+
+## TRON address comparisons and bounded chain-audit reports
+
+MariaDB/MySQL installations commonly use a case-insensitive default collation. TRON Base58Check values must therefore be compared using binary/case-sensitive SQL semantics whenever address matching occurs in SQL (for example, `BINARY address IN (...)`), not merely ordinary `=` or `IN`. JavaScript-side address comparisons remain exact string comparisons. Chain-audit queries use a 501-row sentinel for each 500-row report; the API returns `complete=false` and per-category `truncated` flags whenever a sentinel is observed. A truncated report is not a clean reconciliation and requires a narrower follow-up scan.
