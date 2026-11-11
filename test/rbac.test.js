@@ -36,3 +36,15 @@ test('unmapped endpoints are default-denied except super admin', () => {
   assert.equal(canAccess('finance', 'DELETE', '/api/users/1'), false);
   assert.equal(canAccess('super_admin', 'DELETE', '/api/users/1'), true);
 });
+
+
+test('legacy admin energy routes are authenticated and role-scoped', () => {
+  assert.equal(permissionFor('GET', '/api/admin/energy-orders'), 'operations_read');
+  assert.equal(canAccess('finance', 'GET', '/api/admin/energy-orders'), true);
+  assert.equal(canAccess('operator', 'GET', '/api/admin/energy-orders'), true);
+  assert.equal(canAccess('auditor', 'GET', '/api/admin/energy-orders'), true);
+  assert.equal(canAccess('operator', 'POST', '/api/admin/energy-orders/12/complete'), true);
+  assert.equal(canAccess('finance', 'POST', '/api/admin/energy-orders/12/refund'), true);
+  assert.equal(canAccess('operator', 'POST', '/api/admin/energy-orders/12/refund'), false);
+  assert.equal(canAccess('auditor', 'POST', '/api/admin/energy-orders/12/refund'), false);
+});
