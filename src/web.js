@@ -63,7 +63,7 @@ app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32k
   if (Date.now() - last < 1000) return res.status(429).json({ error: 'too many requests' });
   webhookThrottle.set(ip, Date.now());
   if (!process.env.TRON_EVENT_WEBHOOK_SECRET) return res.status(503).json({ error: 'event provider not configured' });
-  try { return res.json(await require('./eventBridge').handleEvent(req.body, req.get('x-tron-signature'))); }
+  try { return res.status(202).json(await require('./eventBridge').handleEvent(req.body, req.get('x-tron-signature'))); }
   catch (e) { return res.status(e.status || 503).json({ error: e.status ? e.message : 'chain verification unavailable' }); }
 });
 app.use(express.json({ limit: '100kb', inflate: false }));
