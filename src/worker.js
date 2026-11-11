@@ -151,8 +151,9 @@ async function runWorker({ pollMs = Number(process.env.WORKER_POLL_MS || 1000) }
         if (!completed) throw Object.assign(new Error('JOB_LEASE_LOST'), { code: 'JOB_LEASE_LOST' });
         console.log('[worker] job completed', job.id, JSON.stringify(result));
       } catch (error) {
-        await queue.failJob({ id: job.id, leaseToken: job.lease_token, error });
-        if (job.job_type === 'tron.webhook.process' && job.payload?.inboxId) {
+        const leaseOwned = await queue.failJob({ id: job.id, leaseToken: job.lease_token, error });
+        // A stale worker must not overwrite the inbox state after another worker reclaimed the job.
+        if (leaseOwned && job.job_type === 'tron.webhook.process' && job.payload?.inboxId) {
           const [rows] = await pool.execute(
             'SELECT attempts,max_attempts,status FROM background_jobs WHERE id=? LIMIT 1', [job.id]
           );
