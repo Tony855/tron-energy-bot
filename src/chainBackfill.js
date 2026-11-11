@@ -9,10 +9,12 @@ async function indexTransfer(wallet, t, minDeposit) {
   const from = String(t.from || '');
   const to = String(t.to || '');
   if (!txHash || !/^[a-fA-F0-9]{64}$/.test(txHash) || !contract || !from || !to) return { skipped: true };
-  if (process.env.TRON_USDT_CONTRACT && contract.toLowerCase() !== process.env.TRON_USDT_CONTRACT.toLowerCase()) return { skipped: true };
-  if (to.toLowerCase() !== wallet.address.toLowerCase() && from.toLowerCase() !== wallet.address.toLowerCase()) return { skipped: true };
-  const decimals = Number(t.token_info?.decimals ?? process.env.TRON_USDT_DECIMALS ?? 6);
-  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) return { skipped: true };
+  const configuredContract = String(process.env.TRON_USDT_CONTRACT || '');
+  if (!configuredContract || contract !== configuredContract) return { skipped: true };
+  if (to !== wallet.address && from !== wallet.address) return { skipped: true };
+  const configuredDecimals = Number(process.env.TRON_USDT_DECIMALS || 6);
+  const decimals = Number(t.token_info?.decimals ?? configuredDecimals);
+  if (!Number.isInteger(configuredDecimals) || configuredDecimals < 0 || configuredDecimals > 18 || decimals !== configuredDecimals) return { skipped: true };
   const amount = rawToDecimal(t.value || '0', decimals);
   if (BigInt(String(t.value || '0')) <= 0n) return { skipped: true };
   const conn = await pool.getConnection();
@@ -24,7 +26,7 @@ async function indexTransfer(wallet, t, minDeposit) {
       [wallet.id, txHash, eventIndex, contract, from, to, amount, t.block_timestamp || null]
     );
     let rechargeCreated = false;
-    if (wallet.wallet_type === 'deposit' && to.toLowerCase() === wallet.address.toLowerCase() && Number(amount) >= minDeposit) {
+    if (wallet.wallet_type === 'deposit' && to === wallet.address && Number(amount) >= minDeposit) {
       const [existing] = await conn.execute('SELECT id FROM recharge_orders WHERE tx_hash=? AND event_index=? LIMIT 1 FOR UPDATE', [txHash, eventIndex]);
       if (!existing.length) {
         await conn.execute(

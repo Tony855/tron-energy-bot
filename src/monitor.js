@@ -91,9 +91,12 @@ function normalizeTrc20(response, wallet) {
     const from = String(t.from || '');
     const to = String(t.to || '');
     if (!/^[0-9a-f]{64}$/.test(txHash) || !contract || !from || !to) return null;
-    if (process.env.TRON_USDT_CONTRACT && contract.toLowerCase() !== process.env.TRON_USDT_CONTRACT.toLowerCase()) return null;
-    if (from.toLowerCase() !== wallet.address.toLowerCase() && to.toLowerCase() !== wallet.address.toLowerCase()) return null;
-    const decimals = Number(t.token_info?.decimals ?? process.env.TRON_USDT_DECIMALS ?? 6);
+    const configuredContract = String(process.env.TRON_USDT_CONTRACT || '');
+    if (!configuredContract || contract !== configuredContract) return null;
+    if (from !== wallet.address && to !== wallet.address) return null;
+    const configuredDecimals = Number(process.env.TRON_USDT_DECIMALS || 6);
+    const decimals = Number(t.token_info?.decimals ?? configuredDecimals);
+    if (!Number.isInteger(configuredDecimals) || configuredDecimals < 0 || configuredDecimals > 18 || decimals !== configuredDecimals) return null;
     let amount;
     try { amount = rawToDecimal(t.value || '0', decimals); } catch { return null; }
     if (BigInt(String(t.value || '0')) <= 0n) return null;
@@ -120,7 +123,7 @@ async function saveTransfer(wallet, t, type) {
       [wallet.id, t.txHash, t.eventIndex, t.contract, t.from, t.to, t.amount, t.blockTimestamp]
     );
     inserted = true;
-    const incoming = t.to.toLowerCase() === wallet.address.toLowerCase();
+    const incoming = String(t.to) === String(wallet.address);
     if (type === 'trc20' && incoming && wallet.wallet_type === 'deposit' && Number(t.amount) >= Number(process.env.MIN_DEPOSIT || 1)) {
       const [ins] = await conn.execute(
         `INSERT INTO recharge_orders (user_id,wallet_id,tx_hash,event_index,amount,currency,source,status,note)
@@ -156,7 +159,7 @@ async function saveTransfer(wallet, t, type) {
       }
       const stamp = Number(t.blockTimestamp || 0);
       if (stamp > 0 && Date.now() - stamp <= 15 * 60 * 1000) {
-        const incoming = t.to.toLowerCase() === wallet.address.toLowerCase();
+        const incoming = String(t.to) === String(wallet.address);
         const [users] = await conn.execute('SELECT telegram_id FROM users WHERE id=?', [wallet.user_id]);
         if (users[0]?.telegram_id) {
           const unit = type === 'trx' ? 'TRX' : 'USDT-TRC20';

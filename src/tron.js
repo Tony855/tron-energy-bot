@@ -174,7 +174,7 @@ async function getTrxTransfers(address, options = {}) {
 
 function extractTrxTransfers(response, walletAddress) {
   const data = Array.isArray(response?.data) ? response.data : [];
-  const normalizedWallet = String(walletAddress || '').toLowerCase();
+  const expectedWallet = String(walletAddress || '');
   const result = [];
   for (const tx of data) {
     const txHash = String(tx.txID || tx.txid || '').toLowerCase();
@@ -193,7 +193,7 @@ function extractTrxTransfers(response, walletAddress) {
       const toHex = to.replace(/^0x/i, '');
       if (/^41[0-9a-fA-F]{40}$/.test(fromHex)) from = hexAddressToBase58(fromHex);
       if (/^41[0-9a-fA-F]{40}$/.test(toHex)) to = hexAddressToBase58(toHex);
-      if (!from || !to || (from.toLowerCase() !== normalizedWallet && to.toLowerCase() !== normalizedWallet)) continue;
+      if (!from || !to || (from !== expectedWallet && to !== expectedWallet)) continue;
       const rawAmount = String(v.amount ?? '0');
       if (!/^\d+$/.test(rawAmount) || BigInt(rawAmount) <= 0n) continue;
       result.push({

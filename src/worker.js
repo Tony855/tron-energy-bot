@@ -47,7 +47,7 @@ async function processTronWebhook(job) {
 
   // Webhook data is only a hint. All transfer details are fetched from confirmed chain data.
   const transfers = await getConfirmedTrc20Transfer(txHash);
-  const contract = String(process.env.TRON_USDT_CONTRACT || '').toLowerCase();
+  const contract = String(process.env.TRON_USDT_CONTRACT || '');
   if (!contract) throw Object.assign(new Error('TRON_USDT_CONTRACT_MISSING'), { code: 'TRON_USDT_CONTRACT_MISSING' });
   const decimals = Number(process.env.TRON_USDT_DECIMALS || 6);
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 18) {
@@ -57,12 +57,12 @@ async function processTronWebhook(job) {
   let saved = 0;
   for (let index = 0; index < transfers.length; index++) {
     const transfer = transfers[index];
-    if (String(transfer.contract).toLowerCase() !== contract ||
+    if (String(transfer.contract) !== contract ||
         !/^\d+$/.test(String(transfer.rawAmount)) || BigInt(transfer.rawAmount) <= 0n ||
         Number(transfer.decimals) !== decimals) continue;
     const [wallets] = await pool.execute(
-      'SELECT * FROM wallets WHERE is_active=1 AND (LOWER(address)=? OR LOWER(address)=?)',
-      [String(transfer.from).toLowerCase(), String(transfer.to).toLowerCase()]
+      'SELECT * FROM wallets WHERE is_active=1 AND address IN (?,?)',
+      [String(transfer.from), String(transfer.to)]
     );
     for (const wallet of wallets) {
       const { rawToDecimal } = require('./tron');
@@ -77,7 +77,7 @@ async function processTronWebhook(job) {
 
       // Persist independent chain verification on any matching pending deposit order.
       // This also repairs a crash between transfer indexing and verification on retry.
-      if (wallet.wallet_type === 'deposit' && String(transfer.to).toLowerCase() === String(wallet.address).toLowerCase()) {
+      if (wallet.wallet_type === 'deposit' && String(transfer.to) === String(wallet.address)) {
         const [orders] = await pool.execute(
           "SELECT id,amount,status,chain_verified_at FROM recharge_orders WHERE wallet_id=? AND tx_hash=? AND event_index=? AND source='tron' LIMIT 1",
           [wallet.id, txHash, Number.isSafeInteger(Number(transfer.eventIndex)) ? Number(transfer.eventIndex) : index]
