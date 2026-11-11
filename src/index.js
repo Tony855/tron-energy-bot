@@ -11,6 +11,7 @@ const { pool, closePool } = require('./db');
 const { createOutbox } = require('./outbox');
 const { loadConfig } = require('./config');
 const { assertV4Schema } = require('./schemaGuard');
+const { createWorkerSupervisor, updateWorkerHealth } = require('./workerSupervisor');
 
 let server;
 let bot;
@@ -19,6 +20,13 @@ let shuttingDown = false;
 let shutdownTimeoutMs = 15000;
 let socketOutboxPromise;
 const socketOutbox = createOutbox({ pool });
+const workerSupervisor = createWorkerSupervisor({
+  spawnWorker: () => fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' }),
+  maxRestarts: Number(process.env.WORKER_MAX_RESTARTS || 5),
+  baseDelayMs: Number(process.env.WORKER_RESTART_BASE_MS || 1000),
+  maxDelayMs: Number(process.env.WORKER_RESTART_MAX_MS || 30000),
+  onStatus: updateWorkerHealth
+});
 
 function listen(httpServer, port, host) {
   return new Promise((resolve, reject) => {
@@ -91,6 +99,8 @@ async function shutdown(signal = 'shutdown') {
 
   if (socketOutboxPromise) await socketOutboxPromise.catch(() => {});
 
+  workerSupervisor.stop();
+  workerProcess = workerSupervisor.getChild();
   if (workerProcess && workerProcess.exitCode === null) {
     await new Promise(resolve => {
       const timer = setTimeout(() => {
@@ -133,17 +143,8 @@ async function main() {
 
   // Keep durable webhook processing isolated from the HTTP request lifecycle.
   socketOutboxPromise = dispatchSocketOutbox();
-  workerProcess = fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' });
-  workerProcess.on('error', error => {
-    console.error('[worker] process error:', error.message);
-    process.exitCode = 1;
-  });
-  workerProcess.on('exit', (code, signal) => {
-    if (!shuttingDown) {
-      console.error('[worker] exited unexpectedly:', code, signal || '');
-      process.exitCode = 1;
-    }
-  });
+  workerSupervisor.start();
+  workerProcess = workerSupervisor.getChild();
 
   bot = createBot();
   await configureBotCommands(bot);
