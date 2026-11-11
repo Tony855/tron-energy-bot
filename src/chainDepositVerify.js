@@ -22,12 +22,12 @@ function assertRechargeCanCredit(order, { walletAddress, env = process.env } = {
   const verification = parseVerification(order.chain_verified_json);
   const txHash = String(order.tx_hash || '').toLowerCase();
   const proofHash = String(verification?.tx_hash || '').toLowerCase();
-  const configuredContract = String(env.TRON_USDT_CONTRACT || '').trim().toLowerCase();
-  const contract = String(verification?.contract || '').trim().toLowerCase();
+  const configuredContract = String(env.TRON_USDT_CONTRACT || '').trim();
+  const contract = String(verification?.contract || '').trim();
   const configuredDecimals = Number(env.TRON_USDT_DECIMALS || 6);
   const decimals = Number(verification?.decimals);
-  const destination = String(verification?.to || '').trim().toLowerCase();
-  const expectedDestination = String(walletAddress || '').trim().toLowerCase();
+  const destination = String(verification?.to || '').trim();
+  const expectedDestination = String(walletAddress || '').trim();
   let expectedRaw = null;
   try {
     if (Number.isInteger(decimals) && decimals >= 0 && decimals <= 18) {
@@ -51,8 +51,8 @@ function assertRechargeCanCredit(order, { walletAddress, env = process.env } = {
 }
 
 function verifyDepositTransfer(transfers, expected) {
-  const contract = String(expected.contract || '').trim().toLowerCase();
-  const to = String(expected.to || '').trim().toLowerCase();
+  const contract = String(expected.contract || '').trim();
+  const to = String(expected.to || '').trim();
   if (!contract) throw new Error('未配置 TRON_USDT_CONTRACT，拒绝验证充值');
   if (!to) throw new Error('充值订单没有关联充值地址');
   const decimals = Number(expected.decimals ?? 6);
@@ -66,8 +66,8 @@ function verifyDepositTransfer(transfers, expected) {
       /^[a-f0-9]{64}$/.test(txHash) &&
       receiptResult === 'SUCCESS' &&
       /^\d+$/.test(rawAmount) && BigInt(rawAmount) > 0n &&
-      String(t.contract || '').toLowerCase() === contract &&
-      String(t.to || '').toLowerCase() === to &&
+      String(t.contract || '') === contract &&
+      String(t.to || '') === to &&
       Number(t.decimals) === decimals &&
       rawAmount === expectedRaw;
   });
