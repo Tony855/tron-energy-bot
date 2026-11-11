@@ -61,4 +61,4 @@ async function handleEvent(raw, signature) {
   publish('monitor:status', getStatus());
   return { accepted: true, saved };
 }
-module.exports = { initSocket, handleEvent, getStatus, signatureValid, publish };
+module.exports = { initSocket, closeSocket, handleEvent, getStatus, signatureValid, publish };
