@@ -73,11 +73,11 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
       referenceType: 'recharge', referenceId: 1001,
       idempotencyKey: 'integration-ledger-replay:' + crypto.randomUUID()
     };
-    const replayResults = await Promise.all([
-      postInTransaction(sameKeyInput), postInTransaction(sameKeyInput)
-    ]);
+    const replayResults = await Promise.all(
+      Array.from({ length: 16 }, () => postInTransaction(sameKeyInput))
+    );
     assert.equal(replayResults.filter(x => x.posted).length, 1);
-    assert.equal(replayResults.filter(x => x.duplicate).length, 1);
+    assert.equal(replayResults.filter(x => x.duplicate).length, 15);
     await assert.rejects(() => postInTransaction({
       ...sameKeyInput, referenceId: 9999
     }), /幂等键已存在，但用户或金额不一致/);
