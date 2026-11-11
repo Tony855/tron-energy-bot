@@ -83,6 +83,26 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
       "UPDATE recharge_orders SET status='credited', reviewed_by=?, reviewed_at=NOW() WHERE id=? AND status='pending'",
       [reviewer, order.id]
     );
+    const [creditedUsers] = await conn.execute('SELECT telegram_id FROM users WHERE id=? LIMIT 1', [order.user_id]);
+    if (creditedUsers[0]?.telegram_id) {
+      await conn.execute(
+        `INSERT IGNORE INTO event_outbox
+          (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+         VALUES (?, 'recharge', ?, 'telegram.send', ?, 'pending', UTC_TIMESTAMP(3))`,
+        [`recharge:${order.id}:credited:${creditedUsers[0].telegram_id}`, String(order.id),
+          JSON.stringify({ telegramId: creditedUsers[0].telegram_id,
+            text: `充值已审核入账\\n订单：#${order.id}\\n金额：${order.amount} USDT` })]
+      );
+    }
+    await conn.execute(
+      `INSERT IGNORE INTO event_outbox
+        (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+       VALUES (?, 'recharge', ?, 'socket.emit', ?, 'pending', UTC_TIMESTAMP(3))`,
+      [`recharge:${order.id}:credited:socket`, String(order.id),
+        JSON.stringify({ eventName: 'recharge:credited', data: {
+          orderId: order.id, userId: order.user_id, amount: String(order.amount), status: 'credited'
+        } })]
+    );
     const [refRows] = await conn.execute('SELECT referred_by FROM users WHERE id=?', [order.user_id]);
     if (refRows[0]?.referred_by) {
       const [settings] = await conn.execute("SELECT setting_value FROM app_settings WHERE setting_key='referral_commission_percent' LIMIT 1");
