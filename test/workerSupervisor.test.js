@@ -39,7 +39,7 @@ test('worker supervisor restarts unexpected exits with bounded backoff', () => {
 });
 
 test('worker supervisor opens circuit after maximum restart attempts', () => {
-  const h = harness({ maxRestarts: 1, baseDelayMs: 10 });
+  const h = harness({ maxRestarts: 1, baseDelayMs: 100 });
   h.supervisor.start();
   h.children[0].emit('exit', 1, null);
   h.timers[0].fn();
