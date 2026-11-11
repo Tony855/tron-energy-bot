@@ -36,8 +36,10 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const webhookRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash }));
     const webhookSignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(webhookRaw).digest('hex');
     const inbox = createEventInbox({ pool, secret: webhookSecret });
-    const accepted = await inbox.acceptWebhook(webhookRaw, webhookSignature);
-    const duplicateEvent = await inbox.acceptWebhook(webhookRaw, webhookSignature);
+    const [accepted, duplicateEvent] = await Promise.all([
+      inbox.acceptWebhook(webhookRaw, webhookSignature),
+      inbox.acceptWebhook(webhookRaw, webhookSignature)
+    ]);
     assert.equal(accepted.accepted, true);
     assert.equal(accepted.duplicate, false);
     assert.equal(duplicateEvent.duplicate, true);
@@ -82,6 +84,43 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     assert.equal(outboxItem.payload.text, 'integration test');
     assert.equal(await outbox.delivered({ id: outboxItem.id, leaseToken: outboxItem.lease_token }), true);
     assert.equal(await outbox.delivered({ id: outboxItem.id, leaseToken: outboxItem.lease_token }), false);
+
+    const leaseKey = 'outbox-lease:' + suffix;
+    await outboxConn.beginTransaction();
+    await outbox.enqueue(outboxConn, {
+      eventKey: leaseKey, aggregateType: 'test', aggregateId: suffix,
+      eventType: 'telegram.send', payload: { telegramId: '1', text: 'lease recovery' }
+    });
+    await outboxConn.commit();
+    const leaseOne = await outbox.claim('telegram.send', 5);
+    assert.equal(leaseOne.payload.text, 'lease recovery');
+    await pool.execute(
+      'UPDATE event_outbox SET lease_expires_at=DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND) WHERE id=?',
+      [leaseOne.id]
+    );
+    const leaseTwo = await outbox.claim('telegram.send', 5);
+    assert.equal(String(leaseTwo.id), String(leaseOne.id));
+    assert.notEqual(leaseTwo.lease_token, leaseOne.lease_token);
+    assert.equal(await outbox.delivered({ id: leaseOne.id, leaseToken: leaseOne.lease_token }), false);
+    assert.equal(await outbox.delivered({ id: leaseTwo.id, leaseToken: leaseTwo.lease_token }), true);
+
+    const deadKey = 'outbox-dead:' + suffix;
+    await outboxConn.beginTransaction();
+    await outbox.enqueue(outboxConn, {
+      eventKey: deadKey, aggregateType: 'test', aggregateId: suffix,
+      eventType: 'telegram.send', payload: { telegramId: '1', text: 'dead letter' }
+    });
+    await outboxConn.commit();
+    await pool.execute('UPDATE event_outbox SET attempts=11 WHERE event_key=?', [deadKey]);
+    const finalAttempt = await outbox.claim('telegram.send', 5);
+    assert.equal(finalAttempt.payload.text, 'dead letter');
+    assert.equal(await outbox.failed({
+      id: finalAttempt.id, leaseToken: finalAttempt.lease_token,
+      error: { code: 'TEST_FINAL_DELIVERY' }
+    }), true);
+    const [deadOutbox] = await pool.execute('SELECT status,last_error_code FROM event_outbox WHERE event_key=?', [deadKey]);
+    assert.equal(deadOutbox[0].status, 'dead');
+    assert.equal(deadOutbox[0].last_error_code, 'TEST_FINAL_DELIVERY');
 
     const first = await queue.enqueueJob({
       type: 'test.dedupe',
