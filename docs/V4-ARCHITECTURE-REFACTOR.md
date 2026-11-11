@@ -217,3 +217,8 @@ The ledger posting idempotency guard now binds a reused key to the complete post
 - Unit tests cover successful acknowledgement, transport failure/retry recording, empty queues, and lost acknowledgements.
 - A process-level test launches real Node child processes, forces the first worker process to exit unexpectedly, and verifies that the supervisor starts a replacement process.
 - These tests exercise the supervisor and dispatch abstraction in CI. They do not replace a deployment-level rehearsal with the production service manager, real Telegram/Socket.IO endpoints, network partitions, or shutdown under load.
+
+
+## Supplier quote expiry guard (follow-up)
+
+Supplier quote validity is rechecked immediately before every create-order call. A quote that expired after display is skipped and never submitted; if no fresh quote remains, the router returns `PROVIDER_QUOTE_EXPIRED`. This is an application-side guard and does not replace supplier-side expiry enforcement or quote locking.
