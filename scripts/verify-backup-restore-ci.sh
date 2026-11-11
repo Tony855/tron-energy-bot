@@ -44,9 +44,9 @@ CREATE TABLE `$DB_NAME`.users (id BIGINT PRIMARY KEY, marker VARCHAR(64) NOT NUL
 INSERT INTO `$DB_NAME`.users (id, marker) VALUES (1, 'backup-restore-ci-fixture');
 SQL
 
-sudo env ENV_FILE="$ENV_FILE" APP_DIR="$APP_DIR" BACKUP_ROOT="$BACKUP_ROOT" "$ROOT_DIR/scripts/backup.sh"
+sudo env ENV_FILE="$ENV_FILE" APP_DIR="$APP_DIR" BACKUP_ROOT="$BACKUP_ROOT" bash "$ROOT_DIR/scripts/backup.sh"
 BACKUP_DIR="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 [[ -n "$BACKUP_DIR" ]] || { echo 'backup directory not created' >&2; exit 1; }
-sudo env ENV_FILE="$ENV_FILE" "$ROOT_DIR/scripts/restore-drill.sh" "$BACKUP_DIR" | tee "$TMP_DIR/restore.log"
+sudo env ENV_FILE="$ENV_FILE" bash "$ROOT_DIR/scripts/restore-drill.sh" "$BACKUP_DIR" | tee "$TMP_DIR/restore.log"
 grep -q 'users=1' "$TMP_DIR/restore.log"
 echo '[backup-restore-ci] encrypted backup and isolated database restore passed'
