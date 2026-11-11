@@ -3,6 +3,8 @@
 require('dotenv').config();
 
 const app = require('./web');
+const { fork } = require('node:child_process');
+const path = require('node:path');
 const { createBot } = require('./bot');
 const { initSocket, closeSocket } = require('./eventBridge');
 const { pool, closePool } = require('./db');
@@ -10,6 +12,7 @@ const { loadConfig } = require('./config');
 
 let server;
 let bot;
+let workerProcess;
 let shuttingDown = false;
 let shutdownTimeoutMs = 15000;
 
@@ -61,6 +64,18 @@ async function shutdown(signal = 'shutdown') {
     catch (error) { console.error('[lifecycle] bot stop failed:', error.message); }
   }
 
+  if (workerProcess && workerProcess.exitCode === null) {
+    await new Promise(resolve => {
+      const timer = setTimeout(() => {
+        try { workerProcess.kill('SIGKILL'); } catch {}
+        resolve();
+      }, Math.min(10000, shutdownTimeoutMs));
+      workerProcess.once('exit', () => { clearTimeout(timer); resolve(); });
+      try { workerProcess.kill('SIGTERM'); } catch { clearTimeout(timer); resolve(); }
+    });
+    workerProcess = null;
+  }
+
   try { await closeSocket(); }
   catch (error) { console.error('[lifecycle] socket close failed:', error.message); }
 
@@ -87,6 +102,19 @@ async function main() {
   initSocket(server);
   await listen(server, config.port, config.host);
   console.log('[web] listening on ' + config.host + ':' + config.port);
+
+  // Keep durable webhook processing isolated from the HTTP request lifecycle.
+  workerProcess = fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' });
+  workerProcess.on('error', error => {
+    console.error('[worker] process error:', error.message);
+    process.exitCode = 1;
+  });
+  workerProcess.on('exit', (code, signal) => {
+    if (!shuttingDown) {
+      console.error('[worker] exited unexpectedly:', code, signal || '');
+      process.exitCode = 1;
+    }
+  });
 
   bot = createBot();
   await configureBotCommands(bot);
