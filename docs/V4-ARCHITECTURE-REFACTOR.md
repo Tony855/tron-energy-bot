@@ -19,7 +19,7 @@ Findings that should drive the refactor:
 
 ## 2. Target architecture
 
-Use a modular monolith first, not premature microservices. Keep one deployable service and one MySQL database while enforcing explicit module boundaries. Introduce a separate worker process only after durable job ownership and deployment operations are ready.
+Use a modular monolith first, not premature microservices. Keep one deployable service and one MySQL database while enforcing explicit module boundaries. The HTTP service supervises an isolated worker child process; queue ownership and recovery remain database-backed.
 
 Telegram Bot / Admin Web API / Mini App
   -> Interface adapters (HTTP, Telegram, Socket.IO)
@@ -180,11 +180,15 @@ Completed on the isolated refactor branch:
 - Mini App energy ordering now fails closed while no real supplier adapter is enabled, rather than accepting a fake pending order.
 
 Not yet enabled:
-- The inbox/outbox schema and generic queue are primitives only; no production webhook replay dispatcher or background worker is started yet.
+- The TRON webhook now validates the HMAC over raw bytes, writes a deterministic transaction identity to event_inbox and enqueues a job in the same MySQL transaction. HTTP returns 202 only after durable acceptance.
+- The supervised worker re-fetches confirmed TRC20 events from the chain, checks contract/decimals/positive raw amount, indexes matching wallets idempotently, verifies pending deposit orders, and only attempts automatic credit when explicitly enabled.
+- Transfer notifications are inserted into event_outbox in the same transaction as transfer indexing. Telegram and Socket.IO dispatchers claim separate event types with leases, retries, and dead-letter handling.
+- Worker shutdown is bounded and the queue uses lease recovery; `npm run worker` is also available for standalone operation.
 - The V4 SQL migration has not been applied to any production database.
 - Supplier APIs, automatic fulfillment, automatic deposit credit, and automatic signing remain disabled.
-- MySQL integration/concurrency tests and restore/upgrade drills remain required before production use.
-- CI run #28 passed Node.js 22 syntax checks and all unit tests before the subsequent refund/Mini App safety patch; those latest changes require a fresh CI run.
+- CI run #64 previously passed Node.js 22 syntax checks and 87 tests before the webhook/worker/outbox wiring. New parser and MariaDB integration coverage has been added, but no fresh CI result is visible yet.
+- The production database migration has not been applied. Deployments must apply `sql/migrate_v4_durable_queue.sql` under a verified backup before enabling the new webhook route/worker.
+- Multi-provider energy routing, full energy order lifecycle, database restore/rollback rehearsal, load/stress tests, and live supplier acceptance remain incomplete.
 
 ## 10. Required next implementation slice
 
