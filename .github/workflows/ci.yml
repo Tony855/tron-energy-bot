@@ -18,12 +18,17 @@ concurrency:
 
 jobs:
   test:
-    name: Node.js 22 checks
+    name: Node.js ${{ matrix.node-version }} / MariaDB ${{ matrix.mariadb-version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [24, 26]
+        mariadb-version: ['11.4', '11.8']
     services:
       mariadb:
-        image: mariadb:11.4
+        image: mariadb:${{ matrix.mariadb-version }}
         env:
           MARIADB_ROOT_PASSWORD: root
           MARIADB_DATABASE: tron_energy_test
@@ -49,7 +54,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - name: Install dependencies
         run: npm ci
