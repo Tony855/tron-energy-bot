@@ -20,7 +20,7 @@ function loadConfig(env = process.env) {
   if (!host) throw new Error('HOST must not be empty');
   return Object.freeze({
     host,
-    port: positiveInteger(env.PORT, 3080, 'PORT', 65535),
+    port: positiveInteger(env.PORT, 3080, 'PORT', 65535),\n    dbPort: positiveInteger(env.DB_PORT, 3306, 'DB_PORT', 65535),
     shutdownTimeoutMs: positiveInteger(env.SHUTDOWN_TIMEOUT_MS, 15000, 'SHUTDOWN_TIMEOUT_MS', 120000)
   });
 }
