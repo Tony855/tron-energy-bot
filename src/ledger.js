@@ -72,7 +72,16 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
       return { credited: false, reason: 'already_processed' };
     }
     if (order.status !== 'pending') throw new Error('订单状态不允许审核');
-    assertRechargeCanCredit(order);
+    let depositAddress = null;
+    if (order.source === 'tron') {
+      const [walletRows] = await conn.execute(
+        'SELECT address FROM wallets WHERE id=? AND user_id=? LIMIT 1',
+        [order.wallet_id, order.user_id]
+      );
+      depositAddress = walletRows[0]?.address || null;
+      if (!depositAddress) throw new Error('链上充值订单关联的钱包不存在，拒绝入账');
+    }
+    assertRechargeCanCredit(order, { walletAddress: depositAddress });
     const posting = await postBalanceEntry(conn, {
       userId: Number(order.user_id), delta: String(order.amount), entryType: 'deposit',
       referenceType: 'recharge', referenceId: order.id,
