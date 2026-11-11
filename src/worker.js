@@ -134,9 +134,9 @@ async function runWorker({ pollMs = Number(process.env.WORKER_POLL_MS || 1000) }
   while (!stopping) {
     let job;
     try {
-      if (await dispatchTelegramOutbox()) continue;
+      const outboxWorked = await dispatchTelegramOutbox();
       job = await queue.claimJob({ leaseSeconds: 90 });
-      if (!job) { await sleep(pollMs); continue; }
+      if (!job) { if (!outboxWorked) await sleep(pollMs); continue; }
       try {
         const result = await handleJob(job);
         const completed = await queue.completeJob({ id: job.id, leaseToken: job.lease_token });
