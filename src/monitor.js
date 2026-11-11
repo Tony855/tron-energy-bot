@@ -104,7 +104,8 @@ function normalizeTrc20(response, wallet) {
 
 async function saveTransfer(wallet, t, type) {
 
-  // Financial credit is deliberately handled only by the verified recharge service.\n  const conn = await pool.getConnection();
+  // Financial credit is deliberately handled only by the verified recharge service.
+  const conn = await pool.getConnection();
   let rechargeId = null;
   let inserted = false;
   try {
