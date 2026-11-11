@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 function retryDelaySeconds(attempt, random = Math.random) {
   const n = Math.max(1, Math.min(10, Number(attempt) || 1));
   const base = Math.min(3600, 2 ** n);
-  const jitter = Math.floor(Math.max(0, Math.min(0.999999, random())) * Math.max(1, Math.floor(base / 4)));
+  const sample = Number(random());\n  const safeSample = Number.isFinite(sample) ? Math.max(0, Math.min(0.999999, sample)) : 0;\n  const jitter = Math.floor(safeSample * Math.max(1, Math.floor(base / 4)));
   return Math.min(3600, base + jitter);
 }
 
