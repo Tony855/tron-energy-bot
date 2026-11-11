@@ -176,12 +176,15 @@ Completed on the isolated refactor branch:
 - MySQL-backed job enqueue/claim/complete/retry/dead-letter primitives with lease recovery and idempotency keys.
 - CI workflow for Node.js 22 syntax checks and unit tests.
 - Legacy direct-balance energy worker quarantined and regression-tested.
+- Admin energy refunds now lock the order and post an idempotent compensating ledger entry in the same transaction; only failed orders are refundable.
+- Mini App energy ordering now fails closed while no real supplier adapter is enabled, rather than accepting a fake pending order.
 
 Not yet enabled:
 - The inbox/outbox schema and generic queue are primitives only; no production webhook replay dispatcher or background worker is started yet.
 - The V4 SQL migration has not been applied to any production database.
 - Supplier APIs, automatic fulfillment, automatic deposit credit, and automatic signing remain disabled.
 - MySQL integration/concurrency tests and restore/upgrade drills remain required before production use.
+- CI run #28 passed Node.js 22 syntax checks and all unit tests before the subsequent refund/Mini App safety patch; those latest changes require a fresh CI run.
 
 ## 10. Required next implementation slice
 
