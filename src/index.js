@@ -88,7 +88,9 @@ async function shutdown(signal = 'shutdown') {
     catch (error) { console.error('[lifecycle] bot stop failed:', error.message); }
   }
 
-  if (socketOutboxPromise) await socketOutboxPromise.catch(() => {});\n\n  if (workerProcess && workerProcess.exitCode === null) {
+  if (socketOutboxPromise) await socketOutboxPromise.catch(() => {});
+
+  if (workerProcess && workerProcess.exitCode === null) {
     await new Promise(resolve => {
       const timer = setTimeout(() => {
         try { workerProcess.kill('SIGKILL'); } catch {}
@@ -128,7 +130,8 @@ async function main() {
   console.log('[web] listening on ' + config.host + ':' + config.port);
 
   // Keep durable webhook processing isolated from the HTTP request lifecycle.
-  socketOutboxPromise = dispatchSocketOutbox();\n  workerProcess = fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' });
+  socketOutboxPromise = dispatchSocketOutbox();
+  workerProcess = fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' });
   workerProcess.on('error', error => {
     console.error('[worker] process error:', error.message);
     process.exitCode = 1;
