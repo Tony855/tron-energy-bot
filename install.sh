@@ -191,7 +191,7 @@ fi
 id tronbot >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin tronbot
 chown -R tronbot:tronbot "$APP_DIR"
 info "安装生产依赖..."
-runuser -u tronbot -- npm --prefix "$APP_DIR" install --omit=dev --no-audit --no-fund
+runuser -u tronbot -- npm --prefix "$APP_DIR" ci --omit=dev --no-audit --no-fund
 runuser -u tronbot -- npm --prefix "$APP_DIR" run check
 runuser -u tronbot -- npm --prefix "$APP_DIR" test
 
