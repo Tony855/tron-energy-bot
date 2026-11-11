@@ -36,7 +36,7 @@ test('Express 5 serves health, version, static Mini App, and parameterized admin
   assert.equal(miniApp.status, 200);
   assert.match(miniApp.headers.get('content-type') || '', /text\/html/);
 
-  const admin = await fetch(base + '/api/admins/not-a-number');
+  const admin = await fetch(base + '/api/admins/not-a-number', { method: 'PATCH' });
   assert.equal(admin.status, 401);
 });
 
@@ -58,7 +58,7 @@ test('Express 5 reports malformed JSON with a client error and preserves raw web
     body: '{"username":'
   });
   assert.equal(malformed.status, 400);
-  assert.equal((await malformed.json()).error, '服务器内部错误，请稍后重试');
+  assert.equal((await malformed.json()).error, '服务器内部错误，请稍后重试或查看日志');
 
   const webhook = await fetch(base + '/api/events/tron', {
     method: 'POST',
