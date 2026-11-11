@@ -15,6 +15,9 @@ function permissionFor(method, path) {
   if (m === 'GET' && ['/api/deposits','/api/users','/api/withdrawals','/api/audit-logs','/api/commissions','/api/reconciliation/summary','/api/reconciliation/snapshots','/api/ledger/export.csv','/api/finance-audit'].includes(p)) return 'finance_read';
   if (m === 'GET' && ['/api/deposit-wallets','/api/deposit-address-pool'].includes(p)) return 'wallet_read';
   if (m === 'GET' && p === '/api/energy-orders') return 'operations_read';
+  if (m === 'GET' && p === '/api/admin/energy-orders') return 'operations_read';
+  if (m === 'POST' && /^\\/api\\/admin\\/energy-orders\\/\\d+\\/complete$/.test(p)) return 'operations_write';
+  if (m === 'POST' && /^\\/api\\/admin\\/energy-orders\\/\\d+\\/refund$/.test(p)) return 'finance_write';
   if (m === 'GET' && ['/api/chain-backfill/status','/api/chain-alerts/recent','/api/chain-audit','/api/events/status'].includes(p)) return 'chain_read';
   if (p === '/api/chain-backfill/run' && m === 'POST') return 'chain_ops';
   if (p === '/api/chain-alerts/run' && m === 'POST') return 'chain_ops';
@@ -34,8 +37,8 @@ function canAccess(role, method, path) {
   const permission = permissionFor(method, path);
   if (permission === 'public') return true;
   if (role === 'auditor') return ['dashboard','finance_read','wallet_read','operations_read','chain_read'].includes(permission) && String(method).toUpperCase() === 'GET';
-  if (role === 'finance') return ['dashboard','finance_read','wallet_read','finance_write'].includes(permission);
-  if (role === 'operator') return ['dashboard','wallet_read','wallet_write','operations_read','chain_read','chain_ops'].includes(permission);
+  if (role === 'finance') return ['dashboard','finance_read','wallet_read','operations_read','finance_write'].includes(permission);
+  if (role === 'operator') return ['dashboard','wallet_read','wallet_write','operations_read','operations_write','chain_read','chain_ops'].includes(permission);
   return false;
 }
 
