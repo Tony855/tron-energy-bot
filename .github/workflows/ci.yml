@@ -73,6 +73,9 @@ jobs:
         run: node scripts/verify-v4-upgrade.js
       - name: Encrypted backup and isolated restore rehearsal
         if: matrix.node-version == 26 && matrix.mariadb-version == '11.8'
+        env:
+          DB_USER: root
+          DB_PASSWORD: root
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y age mariadb-client
