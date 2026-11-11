@@ -51,11 +51,26 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
         inboxId = insert.insertId;
       } else {
         const [existing] = await conn.execute(
-          'SELECT id,status,body_sha256 FROM event_inbox WHERE provider=? AND provider_event_id=? FOR UPDATE',
+          'SELECT id,status,body_sha256,payload_json FROM event_inbox WHERE provider=? AND provider_event_id=? FOR UPDATE',
           ['tron', event.providerEventId]
         );
-        if (!existing[0] || String(existing[0].body_sha256 || '').toLowerCase() !== bodyHash) {
+        let storedPayload = existing[0]?.payload_json;
+        if (typeof storedPayload === 'string') {
+          try { storedPayload = JSON.parse(storedPayload); } catch { storedPayload = null; }
+        }
+        if (!existing[0] || String(storedPayload?.txHash || '').toLowerCase() !== event.txHash) {
           throw Object.assign(new Error('WEBHOOK_INBOX_CONFLICT'), { code: 'WEBHOOK_INBOX_CONFLICT' });
+        }
+        // Older releases hashed raw JSON bytes. Once the persisted business payload
+        // is confirmed to match, normalize that legacy digest to the canonical form.
+        if (String(existing[0].body_sha256 || '').toLowerCase() !== bodyHash) {
+          const [normalized] = await conn.execute(
+            'UPDATE event_inbox SET body_sha256=? WHERE id=? AND body_sha256=?',
+            [bodyHash, existing[0].id, existing[0].body_sha256]
+          );
+          if (normalized.affectedRows !== 1) {
+            throw Object.assign(new Error('WEBHOOK_INBOX_CONFLICT'), { code: 'WEBHOOK_INBOX_CONFLICT' });
+          }
         }
         inboxId = existing[0].id;
       }
