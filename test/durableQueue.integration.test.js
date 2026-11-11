@@ -97,34 +97,54 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
       );
       return result.insertId;
     };
-    const liveInboxId = await insertInbox('live:' + leaseSuffix);
-    const liveJobId = await insertProcessingJob(liveToken);
-    assert.equal(await updateInboxStatusWithLease(pool, {
-      inboxId: liveInboxId, jobId: liveJobId, leaseToken: liveToken, status: 'processing'
-    }), true, 'valid live lease should advance Inbox to processing');
-    assert.equal(await updateInboxStatusWithLease(pool, {
-      inboxId: liveInboxId, jobId: liveJobId, leaseToken: liveToken, status: 'processed'
-    }), true, 'valid live lease should advance Inbox to processed');
+    const fixtureInboxIds = [];
+    const fixtureJobIds = [];
+    try {
+      const liveInboxId = await insertInbox('live:' + leaseSuffix);
+      fixtureInboxIds.push(liveInboxId);
+      const liveJobId = await insertProcessingJob(liveToken);
+      fixtureJobIds.push(liveJobId);
+      assert.equal(await updateInboxStatusWithLease(pool, {
+        inboxId: liveInboxId, jobId: liveJobId, leaseToken: liveToken, status: 'processing'
+      }), true, 'valid live lease should advance Inbox to processing');
+      assert.equal(await updateInboxStatusWithLease(pool, {
+        inboxId: liveInboxId, jobId: liveJobId, leaseToken: liveToken, status: 'processed'
+      }), true, 'valid live lease should advance Inbox to processed');
 
-    const staleInboxId = await insertInbox('stale:' + leaseSuffix);
-    const staleJobId = await insertProcessingJob(staleToken);
-    assert.equal(await updateInboxStatusWithLease(pool, {
-      inboxId: staleInboxId, jobId: staleJobId, leaseToken: liveToken, status: 'processed'
-    }), false, 'a mismatched lease token must not advance Inbox');
-    const [staleRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [staleInboxId]);
-    assert.equal(staleRows[0].status, 'received');
+      const staleInboxId = await insertInbox('stale:' + leaseSuffix);
+      fixtureInboxIds.push(staleInboxId);
+      const staleJobId = await insertProcessingJob(staleToken);
+      fixtureJobIds.push(staleJobId);
+      assert.equal(await updateInboxStatusWithLease(pool, {
+        inboxId: staleInboxId, jobId: staleJobId, leaseToken: liveToken, status: 'processed'
+      }), false, 'a mismatched lease token must not advance Inbox');
+      const [staleRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [staleInboxId]);
+      assert.equal(staleRows[0].status, 'received');
 
-    const expiredInboxId = await insertInbox('expired:' + leaseSuffix);
-    const expiredJobId = await insertProcessingJob(expiredToken, 'DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND)');
-    assert.equal(await updateInboxStatusWithLease(pool, {
-      inboxId: expiredInboxId, jobId: expiredJobId, leaseToken: expiredToken, status: 'processed'
-    }), false, 'an expired lease must not advance Inbox');
-    const [expiredRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [expiredInboxId]);
-    assert.equal(expiredRows[0].status, 'received');
-
-    // Remove synthetic lease fixtures so later global queue claims see only their own jobs.
-    await pool.execute('DELETE FROM background_jobs WHERE id IN (?,?,?)', [liveJobId, staleJobId, expiredJobId]);
-    await pool.execute('DELETE FROM event_inbox WHERE id IN (?,?,?)', [liveInboxId, staleInboxId, expiredInboxId]);
+      const expiredInboxId = await insertInbox('expired:' + leaseSuffix);
+      fixtureInboxIds.push(expiredInboxId);
+      const expiredJobId = await insertProcessingJob(expiredToken, 'DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND)');
+      fixtureJobIds.push(expiredJobId);
+      assert.equal(await updateInboxStatusWithLease(pool, {
+        inboxId: expiredInboxId, jobId: expiredJobId, leaseToken: expiredToken, status: 'processed'
+      }), false, 'an expired lease must not advance Inbox');
+      const [expiredRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [expiredInboxId]);
+      assert.equal(expiredRows[0].status, 'received');
+    } finally {
+      // Always remove synthetic fixtures, including when an assertion fails midway.
+      if (fixtureJobIds.length) {
+        await pool.execute(
+          `DELETE FROM background_jobs WHERE id IN (${fixtureJobIds.map(() => '?').join(',')})`,
+          fixtureJobIds
+        );
+      }
+      if (fixtureInboxIds.length) {
+        await pool.execute(
+          `DELETE FROM event_inbox WHERE id IN (${fixtureInboxIds.map(() => '?').join(',')})`,
+          fixtureInboxIds
+        );
+      }
+    }
 
     await pool.query(`CREATE TABLE users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
