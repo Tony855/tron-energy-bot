@@ -11,7 +11,7 @@ DB_USER="${DB_USER:-root}"
 DB_PASSWORD="${DB_PASSWORD:-root}"
 cleanup() {
   MYSQL_PWD="$DB_PASSWORD" mysql --protocol=tcp -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -e "DROP DATABASE IF EXISTS $DB_NAME" >/dev/null 2>&1 || true
-  rm -rf "$TMP_DIR"
+  sudo rm -rf "$TMP_DIR"
 }
 trap cleanup EXIT
 
