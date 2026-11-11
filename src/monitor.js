@@ -1,6 +1,5 @@
 const { query, pool } = require('./db');
 const { getTrc20Transfers, getTrxTransfers, extractTrxTransfers, rawToDecimal } = require('./tron');
-const { sendTelegramMessage } = require('./notifier');
 
 let running = false;
 const PAGE_SIZE = Math.min(200, Math.max(1, Number(process.env.TRON_SCAN_PAGE_SIZE || 200)));
