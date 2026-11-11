@@ -75,6 +75,20 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
     return { ...rows[0], payload };
   }
 
+  async function renewJob({ id, leaseToken, leaseSeconds = 90 }) {
+    if (!Number.isInteger(leaseSeconds) || leaseSeconds < 5 || leaseSeconds > 3600) {
+      throw new Error('leaseSeconds must be between 5 and 3600');
+    }
+    const [result] = await pool.execute(
+      `UPDATE background_jobs
+          SET lease_expires_at=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ? SECOND)
+        WHERE id=? AND status='processing' AND lease_token=?
+          AND lease_expires_at>UTC_TIMESTAMP(3)`,
+      [leaseSeconds, id, leaseToken]
+    );
+    return result.affectedRows === 1;
+  }
+
   async function completeJob({ id, leaseToken }) {
     const [result] = await pool.execute(
       `UPDATE background_jobs
@@ -104,7 +118,7 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
     return result.affectedRows === 1;
   }
 
-  return Object.freeze({ enqueueJob, claimJob, completeJob, failJob });
+  return Object.freeze({ enqueueJob, claimJob, renewJob, completeJob, failJob });
 }
 
 module.exports = { createDurableQueue, retryDelaySeconds, safeErrorCode };
