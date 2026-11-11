@@ -42,3 +42,16 @@ test('dotenv 18 keeps the config parser contract used by the application', () =>
 test('runtime policy excludes unsupported Node.js majors', () => {
   assert.equal(pkg.engines.node, '>=24 <27');
 });
+
+
+test('fresh installer selects NodeSource 26 and requires supported Node 24+', () => {
+  const installer = fs.readFileSync(path.join(root, 'install.sh'), 'utf8');
+  assert.match(installer, /MIN_NODE_MAJOR=24/);
+  assert.match(installer, /nodesource\.com\/node_26\.x/);
+});
+
+test('CI covers both supported Node LTS lines and MariaDB LTS lines', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
+  assert.match(workflow, /node-version: \[24, 26\]/);
+  assert.match(workflow, /mariadb-version: \['11\.4', '11\.8'\]/);
+});
