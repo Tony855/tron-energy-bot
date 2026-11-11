@@ -904,7 +904,7 @@ app.use((err, req, res, next) => {
 module.exports = app;
 
 // ------------------ 后台管理：能量订单操作 ------------------
-app.get('/api/admin/energy-orders', async (req, res) => {
+app.get('/api/admin/energy-orders', auth, async (req, res) => {
   try {
     const orders = await query(`
       SELECT eo.*, u.telegram_id, u.username 
@@ -918,18 +918,13 @@ app.get('/api/admin/energy-orders', async (req, res) => {
   }
 });
 
-app.post('/api/admin/energy-orders/:id/complete', async (req, res) => {
-  try {
-    const { txHash } = req.body;
-    const orderId = req.params.id;
-    await query('UPDATE energy_orders SET status = ?, tx_hash = ? WHERE id = ?', ['completed', txHash || 'manual', orderId]);
-    res.json({ success: true, message: '订单已标记为完成' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.post('/api/admin/energy-orders/:id/complete', auth, async (req, res) => {
+  return res.status(409).json({
+    error: '订单完成必须经过供应商履约和链上验证；当前手动完成入口已禁用'
+  });
 });
 
-app.post('/api/admin/energy-orders/:id/refund', async (req, res) => {
+app.post('/api/admin/energy-orders/:id/refund', auth, async (req, res) => {
   const orderId = Number(req.params.id);
   if (!Number.isSafeInteger(orderId) || orderId < 1) {
     return res.status(400).json({ error: '订单 ID 无效' });
