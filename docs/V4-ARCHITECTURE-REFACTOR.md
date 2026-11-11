@@ -209,3 +209,11 @@ The API process supervises the durable worker child process. Unexpected child ex
 ## Financial concurrency follow-up
 
 The ledger posting idempotency guard now binds a reused key to the complete posting identity: user, normalized amount, entry type, reference type, and reference ID. Reusing a key for a different business operation is rejected instead of being treated as a successful duplicate. MariaDB integration coverage now races duplicate credits and refunds, races two debits that together exceed the account balance, and verifies that only one debit succeeds and the balance never becomes negative. These are test-environment checks; production concurrency and load rehearsal remain required.
+
+
+## Worker process and Outbox transport follow-up
+
+- Telegram and Socket.IO outbox consumers now share `dispatchOutboxOnce`, so transport errors are recorded against the current lease and returned to the durable retry/dead-letter policy. A lost lease acknowledgement is logged and is not treated as a second delivery attempt.
+- Unit tests cover successful acknowledgement, transport failure/retry recording, empty queues, and lost acknowledgements.
+- A process-level test launches real Node child processes, forces the first worker process to exit unexpectedly, and verifies that the supervisor starts a replacement process.
+- These tests exercise the supervisor and dispatch abstraction in CI. They do not replace a deployment-level rehearsal with the production service manager, real Telegram/Socket.IO endpoints, network partitions, or shutdown under load.
