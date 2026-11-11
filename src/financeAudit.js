@@ -41,7 +41,7 @@ function createFinanceAudit({ dbPool = defaultPool, env = process.env } = {}) {
         FROM users u LEFT JOIN ledger_entries le ON le.user_id=u.id
        GROUP BY u.id,u.balance
       HAVING ABS(u.balance-COALESCE(SUM(le.amount),0)) > 0.000001
-       ORDER BY u.id LIMIT 500`);
+       ORDER BY u.id LIMIT 501`);
     checks.balance_ledger_mismatch = balance;
 
     const [credited] = await dbPool.query(`
@@ -49,7 +49,7 @@ function createFinanceAudit({ dbPool = defaultPool, env = process.env } = {}) {
         FROM recharge_orders r LEFT JOIN ledger_entries le
           ON le.reference_type='recharge' AND le.reference_id=r.id AND le.entry_type='deposit'
        WHERE r.status IN ('credited','approved') AND le.id IS NULL
-       ORDER BY r.id DESC LIMIT 500`);
+       ORDER BY r.id DESC LIMIT 501`);
     checks.credited_recharge_missing_deposit_ledger = credited;
 
     const [approved] = await dbPool.query(`
@@ -58,7 +58,7 @@ function createFinanceAudit({ dbPool = defaultPool, env = process.env } = {}) {
           ON le.reference_type='withdrawal' AND le.reference_id=w.id
          AND le.idempotency_key=CONCAT('withdrawal-reserve:',w.id)
        WHERE w.status IN ('approved','paid') AND le.id IS NULL
-       ORDER BY w.id DESC LIMIT 500`);
+       ORDER BY w.id DESC LIMIT 501`);
     checks.approved_withdrawal_missing_reserve_ledger = approved;
 
     const [rejected] = await dbPool.query(`
@@ -70,19 +70,19 @@ function createFinanceAudit({ dbPool = defaultPool, env = process.env } = {}) {
          AND EXISTS (SELECT 1 FROM admin_audit_logs a WHERE a.target_type='withdrawal'
                       AND a.target_id=CAST(w.id AS CHAR) AND a.action='withdrawal_approved')
          AND le.id IS NULL
-       ORDER BY w.id DESC LIMIT 500`);
+       ORDER BY w.id DESC LIMIT 501`);
     checks.rejected_after_approval_missing_refund = rejected;
 
     const [dupes] = await dbPool.query(`
       SELECT tx_hash,COUNT(*) count, GROUP_CONCAT(id ORDER BY id) withdrawal_ids
         FROM withdrawal_requests WHERE tx_hash IS NOT NULL AND tx_hash<>''
-       GROUP BY tx_hash HAVING COUNT(*)>1 ORDER BY COUNT(*) DESC LIMIT 200`);
+       GROUP BY tx_hash HAVING COUNT(*)>1 ORDER BY COUNT(*) DESC LIMIT 201`);
     checks.duplicate_withdrawal_tx_hash = dupes;
 
     const [paidRows] = await dbPool.query(`
       SELECT id withdrawal_id,amount,destination_address,status,tx_hash,chain_verified_at,chain_verified_json
         FROM withdrawal_requests WHERE status='paid'
-       ORDER BY id DESC LIMIT 1000`);
+       ORDER BY id DESC LIMIT 1001`);
     checks.paid_withdrawal_missing_or_mismatched_chain_proof = paidRows
       .filter(row => !validatePaidWithdrawalProof(row, {
         contract: env.TRON_USDT_CONTRACT,
@@ -96,9 +96,23 @@ function createFinanceAudit({ dbPool = defaultPool, env = process.env } = {}) {
           ON le.reference_type='referral' AND le.reference_id=c.id
          AND le.entry_type='referral_bonus' AND le.idempotency_key=CONCAT('referral:',c.recharge_order_id)
        WHERE c.status='credited' AND le.id IS NULL
-       ORDER BY c.id DESC LIMIT 500`);
+       ORDER BY c.id DESC LIMIT 501`);
     checks.credited_referral_missing_bonus_ledger = referrals;
 
+    const truncated = [];
+    for (const [key, rows, limit] of [
+      ['balance_ledger_mismatch', balance, 500],
+      ['credited_recharge_missing_deposit_ledger', credited, 500],
+      ['approved_withdrawal_missing_reserve_ledger', approved, 500],
+      ['rejected_after_approval_missing_refund', rejected, 500],
+      ['duplicate_withdrawal_tx_hash', dupes, 200],
+      ['paid_withdrawal_scan', paidRows, 1000],
+      ['credited_referral_missing_bonus_ledger', referrals, 500]
+    ]) {
+      if (rows.length > limit) truncated.push({ check: key, limit });
+      if (rows.length > limit) rows.length = limit;
+    }
+    checks.audit_result_truncated = truncated;
     const counts = Object.fromEntries(Object.entries(checks).map(([key, rows]) => [key, rows.length]));
     return {
       ok: Object.values(counts).every(count => count === 0),
