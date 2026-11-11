@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TRON Energy Bot fresh installer for Debian/Ubuntu (systemd + MySQL + Node.js 22+).
+# TRON Energy Bot fresh installer for Debian/Ubuntu (systemd + MySQL + Node.js 24+).
 # Safe by default: refuses to overwrite an existing deployment/config/database account.
 set -Eeuo pipefail
 umask 077
@@ -58,7 +58,7 @@ ENV_FILE="${ENV_FILE:-/etc/tron-energy-bot.env}"
 SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
 DB_NAME="tron_energy"
 DB_USER="tronbot"
-MIN_NODE_MAJOR=22
+MIN_NODE_MAJOR=24
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info(){ printf "${GREEN}[INFO]${NC} %s\n" "$*"; }
@@ -167,20 +167,20 @@ apt-get update
 apt_wait
 apt-get install -y --no-install-recommends ca-certificates curl gnupg nginx mysql-server openssl python3 age rsync
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "$MIN_NODE_MAJOR" ]]; then
-  info "配置 NodeSource Node.js 22 仓库..."
+  info "配置 NodeSource Node.js 26 仓库..."
   install -d -m 0755 /etc/apt/keyrings
   curl -fsSL --retry 3 --retry-delay 2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg || die "无法获取 NodeSource GPG key"
   [[ -s /etc/apt/keyrings/nodesource.gpg ]] || die "NodeSource GPG key 为空"
   gpg --list-packets /etc/apt/keyrings/nodesource.gpg >/dev/null 2>&1 || die "NodeSource GPG key 格式无效"
   chmod 0644 /etc/apt/keyrings/nodesource.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_26.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
   apt_wait
   apt-get update
   apt_wait
   apt-get install -y --no-install-recommends nodejs
 fi
 node_major="$(node -p 'Number(process.versions.node.split(`.`)[0])')"
-[[ "$node_major" -ge "$MIN_NODE_MAJOR" ]] || die "需要 Node.js 22+，当前为 $(node -v)。"
+[[ "$node_major" -ge "$MIN_NODE_MAJOR" ]] || die "需要 Node.js 24+，当前为 $(node -v)。"
 info "运行环境：Node $(node -v)，npm $(npm -v)"
 
 # Copy source without VCS state or host node_modules. Refuse accidental self-copy.
