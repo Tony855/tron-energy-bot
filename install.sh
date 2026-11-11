@@ -242,6 +242,12 @@ for migration in "$APP_DIR"/sql/migrate_*.sql; do
     fi
 done
 
+# Verify the V4 schema explicitly before creating credentials or starting services.
+V4_TABLE_COUNT="$(mysql --protocol=socket "$DB_NAME" -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('background_jobs','event_inbox','event_outbox','energy_orders')")"
+[[ "$V4_TABLE_COUNT" == "4" ]] || die "V4 durable queue tables are incomplete ($V4_TABLE_COUNT/4)."
+V4_STATUS_TYPE="$(mysql --protocol=socket "$DB_NAME" -Nse "SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='energy_orders' AND column_name='status' LIMIT 1")"
+[[ "$V4_STATUS_TYPE" == *submission_unknown* && "$V4_STATUS_TYPE" == *cancelled* ]] || die "energy_orders.status is missing required V4 states."
+
 # Password charset is restricted above, so SQL interpolation cannot inject statements.
 mysql --protocol=socket <<SQL
 CREATE USER IF NOT EXISTS '${DB_USER}'@'127.0.0.1' IDENTIFIED BY '${DB_PASSWORD}';
