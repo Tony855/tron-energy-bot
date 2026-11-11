@@ -72,6 +72,11 @@ jobs:
           INSTALL_TEST_DB_USER: root
           INSTALL_TEST_DB_PASSWORD: root
         run: node scripts/verify-v4-upgrade.js
+      - name: Encrypted backup and isolated restore rehearsal
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y age mariadb-client
+          bash scripts/verify-backup-restore-ci.sh
       - name: Dependency security audit (block high and critical)
         run: npm audit --audit-level=high
       - name: Syntax checks
