@@ -550,8 +550,13 @@ app.post('/api/deposits/:id/verify-chain', auth, async (req, res) => {
 });
 
 app.post('/api/deposits/:id/approve', auth, async (req, res) => {
-  try { const result = await creditRecharge(Number(req.params.id), req.admin.username); await audit(req.admin.username, 'approve_recharge', 'recharge', req.params.id, result); if (result.credited) { const users = await query('SELECT telegram_id FROM users WHERE id=?', [result.userId]); if (users[0]) await sendTelegramMessage(users[0].telegram_id, `充值已审核入账\n订单：${req.params.id}\n金额：${result.amount} USDT`); } res.json(result); }
-  catch (e) { res.status(400).json({ error: e.message }); }
+  try {
+    const result = await creditRecharge(Number(req.params.id), req.admin.username);
+    await audit(req.admin.username, 'approve_recharge', 'recharge', req.params.id, result);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 app.post('/api/deposits/:id/reject', auth, async (req, res) => {
   const result = await query(
