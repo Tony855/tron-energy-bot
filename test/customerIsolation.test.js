@@ -28,7 +28,9 @@ test('customer wallet and transaction commands scope by authenticated Telegram i
   assert.match(b, /JOIN wallets w ON w\.id=t\.wallet_id WHERE w\.user_id=\?/);
 });
 
-test('chain events are attached only to wallets matching the observed public addresses', () => {
-  assert.match(eventBridge, /FROM wallets WHERE is_active=1 AND \(LOWER\(address\)=\? OR LOWER\(address\)=\?\)/);
-  assert.match(eventBridge, /saveTransfer\(wallet, record, 'trc20'\)/);
+test('chain events are durably queued and attached only to wallets matching observed public addresses', () => {
+  assert.match(eventBridge, /acceptWebhook\(raw, signature\)/);
+  assert.match(eventInbox, /INSERT IGNORE INTO event_inbox/);
+  assert.match(worker, /FROM wallets WHERE is_active=1 AND \(LOWER\(address\)=\? OR LOWER\(address\)=\?\)/);
+  assert.match(worker, /saveTransfer\(wallet, record, 'trc20'\)/);
 });
