@@ -869,15 +869,16 @@ app.get('/api/chain-alerts/recent', auth, async (req, res) => {
 
 app.get('/api/chain-audit', auth, async (req, res) => {
   const minDeposit = Math.max(0, Number(process.env.MIN_DEPOSIT || 1));
+  // A 501st row is a sentinel: the first 500 results alone are not a complete audit.
   const missing = await query(
     `SELECT t.id AS transaction_id,t.wallet_id,w.user_id,w.address AS deposit_address,
             t.tx_hash,t.event_index,t.amount,t.block_timestamp,t.from_address,t.to_address
        FROM transactions t JOIN wallets w ON w.id=t.wallet_id
        LEFT JOIN recharge_orders r ON r.wallet_id=t.wallet_id AND r.tx_hash=t.tx_hash AND r.event_index=t.event_index
       WHERE w.wallet_type='deposit' AND w.is_active=1
-        AND LOWER(t.to_address)=LOWER(w.address) AND t.confirmed=1
+        AND BINARY t.to_address=BINARY w.address AND t.confirmed=1
         AND t.amount >= ? AND r.id IS NULL
-      ORDER BY t.id DESC LIMIT 500`, [minDeposit]
+      ORDER BY t.id DESC LIMIT 501`, [minDeposit]
   );
   const mismatch = await query(
     `SELECT t.id AS transaction_id,r.id AS recharge_order_id,t.wallet_id,w.user_id,
@@ -885,25 +886,33 @@ app.get('/api/chain-audit', auth, async (req, res) => {
             r.status AS recharge_status,t.block_timestamp
        FROM transactions t JOIN wallets w ON w.id=t.wallet_id
        JOIN recharge_orders r ON r.wallet_id=t.wallet_id AND r.tx_hash=t.tx_hash AND r.event_index=t.event_index
-      WHERE w.wallet_type='deposit' AND w.is_active=1 AND LOWER(t.to_address)=LOWER(w.address)
+      WHERE w.wallet_type='deposit' AND w.is_active=1 AND BINARY t.to_address=BINARY w.address
         AND t.confirmed=1 AND ABS(t.amount-r.amount) > 0.000001
-      ORDER BY t.id DESC LIMIT 500`
+      ORDER BY t.id DESC LIMIT 501`
   );
   const orphaned = await query(
     `SELECT r.id AS recharge_order_id,r.user_id,r.wallet_id,r.tx_hash,r.event_index,r.amount,r.status,r.created_at
        FROM recharge_orders r LEFT JOIN transactions t
          ON t.wallet_id=r.wallet_id AND t.tx_hash=r.tx_hash AND t.event_index=r.event_index
       WHERE r.source='tron' AND r.tx_hash IS NOT NULL AND t.id IS NULL
-      ORDER BY r.id DESC LIMIT 500`
+      ORDER BY r.id DESC LIMIT 501`
   );
-  await audit(req.admin.username, 'run_chain_audit', 'chain_audit', null, {
-    missing: missing.length, amount_mismatch: mismatch.length, orphaned_recharge: orphaned.length
-  });
+  const truncated = {
+    missing_recharge_order: missing.length > 500,
+    amount_mismatch: mismatch.length > 500,
+    orphaned_recharge_order: orphaned.length > 500
+  };
+  const findings = {
+    missing_recharge_order: missing.slice(0, 500),
+    amount_mismatch: mismatch.slice(0, 500),
+    orphaned_recharge_order: orphaned.slice(0, 500)
+  };
+  const counts = Object.fromEntries(Object.entries(findings).map(([key, rows]) => [key, rows.length]));
+  await audit(req.admin.username, 'run_chain_audit', 'chain_audit', null, { counts, truncated });
   res.json({ generated_at: new Date().toISOString(), minimum_deposit: minDeposit,
-    counts: { missing_recharge_order: missing.length, amount_mismatch: mismatch.length, orphaned_recharge_order: orphaned.length },
-    missing_recharge_order: missing, amount_mismatch: mismatch, orphaned_recharge_order: orphaned,
+    counts, truncated, complete: !Object.values(truncated).some(Boolean),
+    ...findings,
     disclaimer: '只检查本系统已索引的交易记录，不能发现尚未被扫描到的链上交易；异常只报告，不自动改余额。请在区块浏览器/可信节点复核。' });
-});
 
 app.get('/api/commissions', auth, async (req, res) => {
   const rows = await query(
