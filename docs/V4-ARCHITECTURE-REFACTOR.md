@@ -164,3 +164,29 @@ Implement a DB-backed inbox/outbox before adding more event providers.
 - No energy order reported successful without verified delegation.
 - No destructive schema rewrite or backfill without encrypted backup, dry-run, ownership checks, and rollback.
 - No microservice split until module boundaries, durable jobs, and operational ownership are proven.
+
+
+## 9. Implementation snapshot (2026-11-11)
+
+Completed on the isolated refactor branch:
+- Runtime configuration validation for JWT secret, DB credentials, HTTP port, DB port, and shutdown deadline.
+- Coordinated startup and bounded graceful shutdown for Telegram polling, Socket.IO/HTTP, and the MySQL pool.
+- Separate liveness and database readiness probes; server-generated request correlation IDs.
+- Additive schema for durable event inbox, event outbox, and leased background jobs.
+- MySQL-backed job enqueue/claim/complete/retry/dead-letter primitives with lease recovery and idempotency keys.
+- CI workflow for Node.js 22 syntax checks and unit tests.
+- Legacy direct-balance energy worker quarantined and regression-tested.
+
+Not yet enabled:
+- The inbox/outbox schema and generic queue are primitives only; no production webhook replay dispatcher or background worker is started yet.
+- The V4 SQL migration has not been applied to any production database.
+- Supplier APIs, automatic fulfillment, automatic deposit credit, and automatic signing remain disabled.
+- MySQL integration/concurrency tests and restore/upgrade drills remain required before production use.
+
+## 10. Required next implementation slice
+
+1. Add MySQL integration tests for job lease contention, expiry recovery, dedupe-key collisions, inbox replay, and outbox atomicity.
+2. Wire verified webhook hints into the durable inbox and enqueue processing jobs transactionally.
+3. Add a separately controllable worker process with bounded concurrency, shutdown/drain, and dead-letter inspection.
+4. Publish notifications and Socket.IO events through the outbox only after the associated domain transaction commits.
+5. Centralize energy order transitions and all financial settlement through the existing ledger transaction boundary.
