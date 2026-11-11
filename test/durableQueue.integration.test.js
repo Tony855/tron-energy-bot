@@ -54,6 +54,11 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     assert.equal(accepted.duplicate, false);
     assert.equal(duplicateEvent.duplicate, true);
     assert.equal(duplicateEvent.eventId, accepted.eventId);
+    const replayRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash, amount: '999999999', retry: true }));
+    const replaySignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(replayRaw).digest('hex');
+    const replayResult = await inbox.acceptWebhook(replayRaw, replaySignature);
+    assert.equal(replayResult.duplicate, true);
+    assert.equal(replayResult.eventId, accepted.eventId);
     const [inboxRows] = await pool.execute(
       'SELECT COUNT(*) count FROM event_inbox WHERE provider=? AND provider_event_id=?',
       ['tron', accepted.eventId]
@@ -132,6 +137,29 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const [deadOutbox] = await pool.execute('SELECT status,last_error_code FROM event_outbox WHERE event_key=?', [deadKey]);
     assert.equal(deadOutbox[0].status, 'dead');
     assert.equal(deadOutbox[0].last_error_code, 'TEST_FINAL_DELIVERY');
+
+    const retryKey = 'outbox-retry:' + suffix;
+    await leaseConn.beginTransaction();
+    await outbox.enqueue(leaseConn, {
+      eventKey: retryKey, aggregateType: 'test', aggregateId: suffix,
+      eventType: 'telegram.send', payload: { telegramId: '1', text: 'retry delivery' }
+    });
+    await leaseConn.commit();
+    const failedAttempt = await outbox.claim('telegram.send', 5);
+    assert.equal(failedAttempt.payload.text, 'retry delivery');
+    assert.equal(await outbox.failed({
+      id: failedAttempt.id, leaseToken: failedAttempt.lease_token,
+      error: { code: 'TEST_TRANSIENT_FAILURE' }
+    }), true);
+    const [retryPending] = await pool.execute('SELECT status,last_error_code FROM event_outbox WHERE event_key=?', [retryKey]);
+    assert.equal(retryPending[0].status, 'pending');
+    assert.equal(retryPending[0].last_error_code, 'TEST_TRANSIENT_FAILURE');
+    await pool.execute('UPDATE event_outbox SET available_at=UTC_TIMESTAMP(3) WHERE event_key=?', [retryKey]);
+    const recoveredAttempt = await outbox.claim('telegram.send', 5);
+    assert.equal(String(recoveredAttempt.id), String(failedAttempt.id));
+    assert.notEqual(recoveredAttempt.lease_token, failedAttempt.lease_token);
+    assert.equal(await outbox.delivered({ id: failedAttempt.id, leaseToken: failedAttempt.lease_token }), false);
+    assert.equal(await outbox.delivered({ id: recoveredAttempt.id, leaseToken: recoveredAttempt.lease_token }), true);
     leaseConn.release();
 
     const first = await queue.enqueueJob({
