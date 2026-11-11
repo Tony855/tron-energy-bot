@@ -157,8 +157,8 @@ async function saveTransfer(wallet, t, type) {
           } })]
       );
       if (rechargeId) {
-        const adminIds = [...new Set(String(process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(x => x.trim()).filter(x => /^-?\\d+$/.test(x)))];
-        const alert = `新链上充值待审核\\n订单：#${rechargeId}\\n用户：#${wallet.user_id}\\n金额：${t.amount} USDT\\n地址：${wallet.address}\\n交易：${t.txHash}\\n请先核验链上交易，再审核入账。`;
+        const adminIds = [...new Set(String(process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(x => x.trim()).filter(x => /^-?\d+$/.test(x)))];
+        const alert = `新链上充值待审核\n订单：#${rechargeId}\n用户：#${wallet.user_id}\n金额：${t.amount} USDT\n地址：${wallet.address}\n交易：${t.txHash}\n请先核验链上交易，再审核入账。`;
         for (const adminId of adminIds) {
           await conn.execute(
             `INSERT IGNORE INTO event_outbox
@@ -176,7 +176,7 @@ async function saveTransfer(wallet, t, type) {
         if (users[0]?.telegram_id) {
           const unit = type === 'trx' ? 'TRX' : 'USDT-TRC20';
           const shortHash = `${t.txHash.slice(0, 10)}...${t.txHash.slice(-8)}`;
-          const message = `TRON 地址交易提醒\\n类型：${incoming ? '收到转账' : '转出转账'}\\n资产：${unit}\\n金额：${t.amount}\\n对方地址：${incoming ? t.from : t.to}\\n交易：${shortHash}\\n状态：已确认\\n监控地址：${wallet.address}`;
+          const message = `TRON 地址交易提醒\n类型：${incoming ? '收到转账' : '转出转账'}\n资产：${unit}\n金额：${t.amount}\n对方地址：${incoming ? t.from : t.to}\n交易：${shortHash}\n状态：已确认\n监控地址：${wallet.address}`;
           await conn.execute(
             `INSERT IGNORE INTO event_outbox
               (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
