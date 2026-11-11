@@ -18,6 +18,7 @@ const { runFinanceAudit } = require('./financeAudit');
 const { verifyDepositTransfer } = require('./chainDepositVerify');
 const { createSharedLoginGuard } = require('./sharedLoginGuard');
 const { canAccess, VALID_ROLES } = require('./rbac');
+const { getWorkerHealth } = require('./workerSupervisor');
 
 const loginGuard = createSharedLoginGuard(pool, { maxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5), windowMs: Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000), lockMs: Number(process.env.LOGIN_LOCK_MS || 15 * 60 * 1000) });
 
@@ -122,8 +123,14 @@ app.get('/api/events/status', auth, (req, res) => res.json(require('./eventBridg
 app.get('/health/live', (req, res) => res.status(200).json({ ok: true, service: 'tron-energy-bot' }));
 
 app.get('/health/ready', async (req, res) => {
-  try { await pool.query('SELECT 1'); return res.status(200).json({ ok: true, database: 'ok' }); }
-  catch { return res.status(503).json({ ok: false, database: 'error' }); }
+  const worker = getWorkerHealth();
+  try {
+    await pool.query('SELECT 1');
+    if (worker.status !== 'running') return res.status(503).json({ ok: false, database: 'ok', worker: worker.status });
+    return res.status(200).json({ ok: true, database: 'ok', worker: 'running' });
+  } catch {
+    return res.status(503).json({ ok: false, database: 'error', worker: worker.status });
+  }
 });
 
 app.get(['/health', '/api/health'], async (req, res) => {
