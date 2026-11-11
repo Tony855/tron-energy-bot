@@ -168,3 +168,19 @@ The webhook worker, periodic monitor, and historical backfill must identify the 
 ## TRON address comparisons and bounded chain-audit reports
 
 MariaDB/MySQL installations commonly use a case-insensitive default collation. TRON Base58Check values must therefore be compared using binary/case-sensitive SQL semantics whenever address matching occurs in SQL (for example, `BINARY address IN (...)`), not merely ordinary `=` or `IN`. JavaScript-side address comparisons remain exact string comparisons. Chain-audit queries use a 501-row sentinel for each 500-row report; the API returns `complete=false` and per-category `truncated` flags whenever a sentinel is observed. A truncated report is not a clean reconciliation and requires a narrower follow-up scan.
+
+
+## 10. Backfill and worker lease concurrency controls
+
+Historical backfill is serialized by a MariaDB advisory lock scoped to the exact wallet and UTC date range. The lock is held on a dedicated database connection for the complete per-wallet scan and released in a finally path. A competing administrator request skips that wallet with an `already_running` result rather than racing its fingerprint/counters. The unique wallet/range key remains the durable state invariant; the advisory lock is the cross-process execution guard.
+
+Webhook Inbox transitions to `processing` and `processed` are conditional on the corresponding background job still being in `processing`, carrying the same lease token, and having a non-expired lease. A worker that has lost its lease cannot advance the Inbox state. Chain indexing and ledger writes still rely on their independent unique keys/idempotency transactions; the lease is not an exactly-once guarantee for external side effects.
+
+Required staging evidence:
+- [ ] Two simultaneous backfill requests for the same wallet/range: one runs, the other reports `already_running`.
+- [ ] Different wallet/range lock keys can proceed independently.
+- [ ] Killing the active backfill process releases the connection-scoped lock; the next request resumes from the persisted fingerprint.
+- [ ] An expired/replaced job lease cannot set its Inbox event to `processing` or `processed`.
+- [ ] Repeated webhook processing does not create a second transaction, recharge, or ledger posting.
+
+These tests and the MariaDB CI suite establish regression behavior. A staging crash/restart rehearsal and production-like throughput benchmark are still required before release.

@@ -19,6 +19,22 @@ let stopping = false;
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+async function updateInboxStatusWithLease(dbPool, { inboxId, jobId, leaseToken, status, errorCode = null }) {
+  const [result] = await dbPool.execute(
+    `UPDATE event_inbox
+        SET status=?,last_error_code=?,attempts=IF(?='processing',attempts+1,attempts),
+            processed_at=IF(?='processed',UTC_TIMESTAMP(3),processed_at)
+      WHERE id=? AND status<>'processed'
+        AND EXISTS (
+          SELECT 1 FROM background_jobs j
+           WHERE j.id=? AND j.status='processing' AND j.lease_token=?
+             AND j.lease_expires_at>UTC_TIMESTAMP(3)
+        )`,
+    [status, errorCode, status, status, inboxId, jobId, leaseToken]
+  );
+  return result.affectedRows === 1;
+}
+
 async function processTronWebhook(job) {
   const inboxId = Number(job.payload?.inboxId);
   const txHash = String(job.payload?.txHash || '').toLowerCase();
@@ -41,10 +57,10 @@ async function processTronWebhook(job) {
     throw Object.assign(new Error('INBOX_PAYLOAD_MISMATCH'), { code: 'INBOX_PAYLOAD_MISMATCH' });
   }
 
-  await pool.execute(
-    "UPDATE event_inbox SET status='processing',attempts=attempts+1 WHERE id=? AND status<>'processed'",
-    [inboxId]
-  );
+  const claimed = await updateInboxStatusWithLease(pool, {
+    inboxId, jobId: job.id, leaseToken: job.lease_token, status: 'processing'
+  });
+  if (!claimed) throw Object.assign(new Error('JOB_LEASE_LOST'), { code: 'JOB_LEASE_LOST' });
 
   // Webhook data is only a hint. All transfer details are fetched from confirmed chain data.
   const transfers = await getConfirmedTrc20Transfer(txHash);
@@ -105,10 +121,10 @@ async function processTronWebhook(job) {
     }
   }
 
-  await pool.execute(
-    "UPDATE event_inbox SET status='processed',processed_at=UTC_TIMESTAMP(3),last_error_code=NULL WHERE id=?",
-    [inboxId]
-  );
+  const finalized = await updateInboxStatusWithLease(pool, {
+    inboxId, jobId: job.id, leaseToken: job.lease_token, status: 'processed'
+  });
+  if (!finalized) throw Object.assign(new Error('JOB_LEASE_LOST'), { code: 'JOB_LEASE_LOST' });
   return { saved };
 }
 
@@ -206,4 +222,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { runWorker, stopWorker, processTronWebhook };
+module.exports = { runWorker, stopWorker, processTronWebhook, updateInboxStatusWithLease };
