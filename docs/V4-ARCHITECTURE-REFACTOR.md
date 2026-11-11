@@ -204,3 +204,8 @@ Implemented on `refactor/v4-architecture`:
 The API process supervises the durable worker child process. Unexpected child exit or spawn errors trigger bounded exponential restart delays controlled by `WORKER_RESTART_BASE_MS` and `WORKER_RESTART_MAX_MS`. The number of automatic retries is capped by `WORKER_MAX_RESTARTS`; after the cap, worker health becomes `failed` and readiness remains HTTP 503 until the service is restarted or an operator intervenes. Graceful shutdown cancels pending restarts and does not relaunch the worker.
 
 `/health/ready` now requires both a reachable database and a worker process that emitted its successful spawn event. This is process-level readiness, not a substitute for a worker heartbeat or proof that an external supplier is available. Automated tests cover unexpected exit, bounded backoff, retry exhaustion, child spawn errors, and no restart after intentional shutdown.
+
+
+## Financial concurrency follow-up
+
+The ledger posting idempotency guard now binds a reused key to the complete posting identity: user, normalized amount, entry type, reference type, and reference ID. Reusing a key for a different business operation is rejected instead of being treated as a successful duplicate. MariaDB integration coverage now races duplicate credits and refunds, races two debits that together exceed the account balance, and verifies that only one debit succeeds and the balance never becomes negative. These are test-environment checks; production concurrency and load rehearsal remain required.
