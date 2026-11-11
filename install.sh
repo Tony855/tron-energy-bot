@@ -166,7 +166,7 @@ apt_wait
 apt-get update
 apt_wait
 apt-get install -y --no-install-recommends ca-certificates curl gnupg nginx mysql-server openssl python3 age rsync
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "$MIN_NODE_MAJOR" ]]; then
+if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "$MIN_NODE_MAJOR" || "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -ge 27 ]]; then
   info "配置 NodeSource Node.js 26 仓库..."
   install -d -m 0755 /etc/apt/keyrings
   curl -fsSL --retry 3 --retry-delay 2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg || die "无法获取 NodeSource GPG key"
@@ -180,7 +180,7 @@ if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.n
   apt-get install -y --no-install-recommends nodejs
 fi
 node_major="$(node -p 'Number(process.versions.node.split(`.`)[0])')"
-[[ "$node_major" -ge "$MIN_NODE_MAJOR" ]] || die "需要 Node.js 24+，当前为 $(node -v)。"
+[[ "$node_major" -ge "$MIN_NODE_MAJOR" && "$node_major" -lt 27 ]] || die "需要 Node.js 24 或 26，当前为 $(node -v)。"
 info "运行环境：Node $(node -v)，npm $(npm -v)"
 
 # Copy source without VCS state or host node_modules. Refuse accidental self-copy.
