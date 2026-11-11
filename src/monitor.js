@@ -193,10 +193,6 @@ async function saveTransfer(wallet, t, type) {
     if (e.code !== 'ER_DUP_ENTRY') throw e;
   } finally { conn.release(); }
 
-  if (rechargeId && process.env.AUTO_CREDIT_CONFIRMED === 'true' && process.env.TRON_EVENT_ONLY !== 'true') {
-    try { await creditRecharge(rechargeId, 'tron-monitor'); }
-    catch (e) { console.error('[monitor] auto-credit error:', e.message); }
-  }
   return inserted;
 }
 
