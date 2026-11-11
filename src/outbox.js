@@ -21,6 +21,9 @@ function createOutbox({ pool, uuid = crypto.randomUUID } = {}) {
 
   async function claim(eventType, leaseSeconds = 60) {
     if (!/^[a-zA-Z0-9_.:-]{1,80}$/.test(String(eventType || ''))) throw new Error('Invalid event type');
+    if (!Number.isInteger(leaseSeconds) || leaseSeconds < 5 || leaseSeconds > 3600) {
+      throw new Error('leaseSeconds must be between 5 and 3600');
+    }
     const leaseToken = uuid();
     await pool.execute(
       "UPDATE event_outbox SET status='dead',lease_token=NULL,lease_expires_at=NULL,last_error_code='LEASE_EXPIRED' WHERE status='processing' AND lease_expires_at<=UTC_TIMESTAMP(3) AND attempts>=12 AND event_type=?",
