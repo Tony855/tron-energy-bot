@@ -68,3 +68,26 @@ test('outbox dispatcher reports a lost acknowledgement without attempting a seco
   assert.equal(warnings.length, 1);
   assert.deepEqual(outbox.calls.map(x => x[0]), ['claim', 'delivered']);
 });
+
+
+test('outbox retries a transient transport outage and succeeds on a later lease', async () => {
+  const outbox = fakeOutbox();
+  const deliveredIds = [];
+  let transportOnline = false;
+  let claimCount = 0;
+  outbox.claim = async () => {
+    claimCount += 1;
+    return { id: 7, lease_token: 'lease-' + claimCount, payload: { attempt: claimCount } };
+  };
+  const deliver = async item => {
+    if (!transportOnline) throw Object.assign(new Error('network partition'), { code: 'ECONNRESET' });
+    deliveredIds.push(item.id);
+  };
+  await dispatchOutboxOnce({ outbox, eventType: 'socket.emit', deliver, logger: { warn() {}, error() {} } });
+  assert.equal(outbox.calls.at(-1)[0], 'failed');
+  transportOnline = true;
+  await dispatchOutboxOnce({ outbox, eventType: 'socket.emit', deliver, logger: { warn() {}, error() {} } });
+  assert.deepEqual(deliveredIds, [7]);
+  assert.equal(outbox.calls.at(-1)[0], 'delivered');
+  assert.equal(claimCount, 2);
+});
