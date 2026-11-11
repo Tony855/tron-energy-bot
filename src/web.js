@@ -627,7 +627,7 @@ app.post('/api/withdrawals/:id/approve', auth, async (req, res) => {
     await conn.rollback();
     res.status(400).json({ error: e.message });
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 });
 
@@ -929,8 +929,9 @@ app.post('/api/admin/energy-orders/:id/refund', auth, async (req, res) => {
   if (!Number.isSafeInteger(orderId) || orderId < 1) {
     return res.status(400).json({ error: '订单 ID 无效' });
   }
-  const conn = await pool.getConnection();
+  let conn;
   try {
+    conn = await pool.getConnection();
     await conn.beginTransaction();
     const [orders] = await conn.execute('SELECT * FROM energy_orders WHERE id=? FOR UPDATE', [orderId]);
     const order = orders[0];
@@ -963,7 +964,7 @@ app.post('/api/admin/energy-orders/:id/refund', auth, async (req, res) => {
     await conn.commit();
     return res.json({ success: true, duplicate: Boolean(duplicate), posted: Boolean(posted), message: '退款已通过财务账本处理' });
   } catch (err) {
-    try { await conn.rollback(); } catch {}
+    if (conn) { try { await conn.rollback(); } catch {} }
     console.error('[energy-refund] failed:', err.message);
     return res.status(500).json({ error: '退款失败，请核对账本后重试' });
   } finally {
