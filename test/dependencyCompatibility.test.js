@@ -30,6 +30,8 @@ test('bcryptjs 3 can hash and verify existing password format', () => {
   const hash = bcrypt.hashSync('dependency-upgrade-compatibility-check', 4);
   assert.equal(bcrypt.compareSync('dependency-upgrade-compatibility-check', hash), true);
   assert.equal(bcrypt.compareSync('incorrect-password', hash), false);
+  const legacyV2Hash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+  assert.equal(bcrypt.compareSync('password', legacyV2Hash), true);
 });
 
 test('dotenv 18 keeps the config parser contract used by the application', () => {
