@@ -35,3 +35,8 @@ The current lockfile pins these resolved lines:
 Express 5 is not bundled into this batch. Its route matching, middleware, and async error-handling changes require a separate source audit and regression suite. A future Express 5 PR must pass all webhook, authentication, admin, Socket.IO, and error-boundary tests before adoption.
 
 Operating-system and production database upgrades must be applied with a tested backup, restore rehearsal, maintenance window, and rollback plan. No CI matrix result substitutes for a production restore test.
+
+
+## Express 5 migration gate (separate from routine dependency updates)
+
+Do not merge an Express major upgrade based only on npm audit or a green dependency-install job. The migration must run the existing full Node 24/26 × MariaDB 11.4/11.8 matrix and add runtime integration coverage for route matching, malformed JSON/body parser errors, async rejection propagation, authentication/authorization boundaries, webhook raw-body signature verification, static/admin routes, Socket.IO attachment and graceful shutdown. Keep Express 4 pinned on the stable branch until that exact compatibility suite passes; production rollout remains a separately staged change.
