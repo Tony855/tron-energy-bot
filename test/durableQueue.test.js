@@ -94,3 +94,40 @@ test('renewJob extends only the current live lease token', async () => {
   assert.match(calls[0].sql, /lease_token=\?/);
   assert.deepEqual(calls[0].params, [120, 9, 'lease-9']);
 });
+
+test('claimJob retries SQLSTATE 40001 serialization failures', async () => {
+  const delays = [];
+  let calls = 0;
+  const pool = {
+    async execute() {
+      calls++;
+      if (calls === 1) {
+        const error = new Error('serialization failure');
+        error.sqlState = '40001';
+        throw error;
+      }
+      return [{ affectedRows: 0 }, []];
+    }
+  };
+  const queue = createDurableQueue({ pool, sleep: async ms => { delays.push(ms); } });
+  assert.equal(await queue.claimJob(), null);
+  assert.equal(calls, 3, 'cleanup retry, cleanup success, and claim update');
+  assert.deepEqual(delays, [10]);
+});
+
+test('claimJob stops after four transient claim-update attempts', async () => {
+  const delays = [];
+  let calls = 0;
+  const pool = {
+    async execute() {
+      calls++;
+      const error = new Error('deadlock');
+      error.code = 'ER_LOCK_DEADLOCK';
+      throw error;
+    }
+  };
+  const queue = createDurableQueue({ pool, sleep: async ms => { delays.push(ms); } });
+  await assert.rejects(queue.claimJob(), { code: 'ER_LOCK_DEADLOCK' });
+  assert.equal(calls, 4);
+  assert.deepEqual(delays, [10, 20, 40]);
+});
