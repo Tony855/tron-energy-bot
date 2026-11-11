@@ -9,6 +9,8 @@ const mysql = require('mysql2/promise');
 const { createDurableQueue } = require('../src/durableQueue');
 const { createOutbox } = require('../src/outbox');
 const { createEventInbox } = require('../src/eventInbox');
+const { acquireBackfillLock } = require('../src/chainBackfill');
+const { updateInboxStatusWithLease } = require('../src/worker');
 
 test('durable queue supports MySQL idempotency, concurrent claims, lease recovery and dead letters', {
   skip: process.env.MYSQL_INTEGRATION !== '1'
@@ -37,7 +39,89 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     await pool.query(migration); // migration must be repeatable
     const [energyStatusColumns] = await pool.query("SHOW COLUMNS FROM energy_orders LIKE 'status'");
     assert.match(energyStatusColumns[0].Type, /submission_unknown/);
+
     assert.match(energyStatusColumns[0].Type, /cancelled/);
+
+    // Exercise advisory locks with independent MariaDB pools/connections.
+    const secondPool = mysql.createPool({
+      host: process.env.DB_HOST || '127.0.0.1',
+      port: Number(process.env.DB_PORT || 3306),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      waitForConnections: true,
+      connectionLimit: 3,
+      timezone: 'Z'
+    });
+    try {
+      const lockFrom = Date.parse('2026-11-01T00:00:00Z');
+      const lockTo = Date.parse('2026-11-02T23:59:59.999Z');
+      const firstLock = await acquireBackfillLock(900001, lockFrom, lockTo, pool);
+      assert.equal(typeof firstLock, 'function', 'first MariaDB session should acquire the lock');
+      try {
+        assert.equal(await acquireBackfillLock(900001, lockFrom, lockTo, secondPool), null,
+          'a competing MariaDB session must not acquire the same wallet/range lock');
+        const independentLock = await acquireBackfillLock(900002, lockFrom, lockTo, secondPool);
+        assert.equal(typeof independentLock, 'function',
+          'a different wallet scope must acquire an independent lock');
+        await independentLock();
+      } finally {
+        await firstLock();
+      }
+      const reacquired = await acquireBackfillLock(900001, lockFrom, lockTo, secondPool);
+      assert.equal(typeof reacquired, 'function', 'lock must be acquirable after owner releases it');
+      await reacquired();
+    } finally {
+      await secondPool.end();
+    }
+
+    // Verify Inbox lease fencing against actual MariaDB rows, not a SQL mock.
+    const leaseSuffix = crypto.randomUUID();
+    const liveToken = crypto.randomUUID();
+    const staleToken = crypto.randomUUID();
+    const expiredToken = crypto.randomUUID();
+    const insertInbox = async providerEventId => {
+      const [result] = await pool.execute(
+        `INSERT INTO event_inbox
+          (provider,provider_event_id,network,event_type,body_sha256,payload_json,signature_valid,status)
+         VALUES ('integration',?,'mainnet','trc20.transfer',?,JSON_OBJECT('txHash',?),1,'received')`,
+        [providerEventId, crypto.createHash('sha256').update(providerEventId).digest('hex'), crypto.createHash('sha256').update(providerEventId).digest('hex')]
+      );
+      return result.insertId;
+    };
+    const insertProcessingJob = async (token, expiresSql = 'DATE_ADD(UTC_TIMESTAMP(3), INTERVAL 60 SECOND)') => {
+      const [result] = await pool.execute(
+        `INSERT INTO background_jobs (job_type,payload_json,status,lease_token,lease_expires_at)
+         VALUES ('integration.lease',JSON_OBJECT('test',true),'processing',?,${expiresSql})`,
+        [token]
+      );
+      return result.insertId;
+    };
+    const liveInboxId = await insertInbox('live:' + leaseSuffix);
+    const liveJobId = await insertProcessingJob(liveToken);
+    assert.equal(await updateInboxStatusWithLease(pool, {
+      inboxId: liveInboxId, jobId: liveJobId, leaseToken: liveToken, status: 'processing'
+    }), true, 'valid live lease should advance Inbox to processing');
+    assert.equal(await updateInboxStatusWithLease(pool, {
+      inboxId: liveInboxId, jobId: liveJobId, leaseToken: liveToken, status: 'processed'
+    }), true, 'valid live lease should advance Inbox to processed');
+
+    const staleInboxId = await insertInbox('stale:' + leaseSuffix);
+    const staleJobId = await insertProcessingJob(staleToken);
+    assert.equal(await updateInboxStatusWithLease(pool, {
+      inboxId: staleInboxId, jobId: staleJobId, leaseToken: liveToken, status: 'processed'
+    }), false, 'a mismatched lease token must not advance Inbox');
+    const [staleRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [staleInboxId]);
+    assert.equal(staleRows[0].status, 'received');
+
+    const expiredInboxId = await insertInbox('expired:' + leaseSuffix);
+    const expiredJobId = await insertProcessingJob(expiredToken, 'DATE_SUB(UTC_TIMESTAMP(3), INTERVAL 1 SECOND)');
+    assert.equal(await updateInboxStatusWithLease(pool, {
+      inboxId: expiredInboxId, jobId: expiredJobId, leaseToken: expiredToken, status: 'processed'
+    }), false, 'an expired lease must not advance Inbox');
+    const [expiredRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [expiredInboxId]);
+    assert.equal(expiredRows[0].status, 'received');
+
     await pool.query(`CREATE TABLE users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       balance DECIMAL(30,6) NOT NULL DEFAULT 0
