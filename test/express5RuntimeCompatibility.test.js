@@ -11,6 +11,8 @@ delete process.env.TRON_EVENT_WEBHOOK_SECRET;
 const app = require('../src/web');
 const { closePool } = require('../src/db');
 
+test.after(async () => { await closePool(); });
+
 test('Express 5 serves health, version, static Mini App, and parameterized admin routes', async t => {
   const server = app.listen(0, '127.0.0.1');
   await new Promise((resolve, reject) => {
@@ -19,7 +21,6 @@ test('Express 5 serves health, version, static Mini App, and parameterized admin
   });
   t.after(async () => {
     await new Promise(resolve => server.close(() => resolve()));
-    await closePool();
   });
   const base = 'http://127.0.0.1:' + server.address().port;
 
