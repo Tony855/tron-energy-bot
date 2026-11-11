@@ -31,7 +31,7 @@ test('customer wallet and transaction commands scope by authenticated Telegram i
 test('chain events are durably queued and attached only to wallets matching observed public addresses', () => {
   assert.match(eventBridge, /acceptWebhook\(raw, signature\)/);
   assert.match(eventInbox, /INSERT IGNORE INTO event_inbox/);
-  assert.match(worker, /FROM wallets WHERE is_active=1 AND address IN \(\?,\?\)/);
+  assert.match(worker, /FROM wallets WHERE is_active=1 AND BINARY address IN \(BINARY \?,BINARY \?\)/);
   assert.doesNotMatch(worker, /LOWER\(address\)/);
   assert.match(worker, /saveTransfer\(wallet, record, 'trc20'\)/);
 });
