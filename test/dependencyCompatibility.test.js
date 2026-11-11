@@ -30,7 +30,7 @@ test('bcryptjs 3 can hash and verify existing password format', () => {
   const hash = bcrypt.hashSync('dependency-upgrade-compatibility-check', 4);
   assert.equal(bcrypt.compareSync('dependency-upgrade-compatibility-check', hash), true);
   assert.equal(bcrypt.compareSync('incorrect-password', hash), false);
-  const legacyV2Hash = hash.replace(/^\\$2[ab]\\$/, '$2a
+  const legacyV2Hash = hash.replace(/^\$2[ab]\$/, () => '$2a$');
 });
 
 test('dotenv 18 keeps the config parser contract used by the application', () => {
@@ -57,7 +57,7 @@ test('CI covers both supported Node LTS lines and MariaDB LTS lines', () => {
   assert.match(workflow, /mariadb-version: \['11\.4', '11\.8'\]/);
 });
 );
-  assert.match(legacyV2Hash, /^\\$2a\\$/);
+  assert.match(legacyV2Hash, /^\$2a\$/);
   assert.equal(bcrypt.compareSync('dependency-upgrade-compatibility-check', legacyV2Hash), true);
 });
 
