@@ -24,7 +24,11 @@ function fakePool({ existingHash = null, existingPayload = { txHash: 'c'.repeat(
       if (sql.includes('SELECT id,status,body_sha256')) {
         return [[{ id: 42, status: 'received', body_sha256: existingHash ?? state.storedHash, payload_json: JSON.stringify(existingPayload) }], undefined];
       }
-      if (sql.includes('UPDATE event_inbox SET body_sha256=?')) {\n        state.normalizedHash = params[0];\n        return [{ affectedRows: 1 }, undefined];\n      }\n      if (sql.includes('INSERT IGNORE INTO background_jobs')) {
+      if (sql.includes('UPDATE event_inbox SET body_sha256=?')) {
+        state.normalizedHash = params[0];
+        return [{ affectedRows: 1 }, undefined];
+      }
+      if (sql.includes('INSERT IGNORE INTO background_jobs')) {
         state.jobInserts += 1;
         return [{ affectedRows: 1, insertId: 99 }, undefined];
       }
@@ -57,7 +61,11 @@ test('TRON webhook parser rejects bad signatures and malformed event envelopes',
 test('duplicate webhook retries compare a canonical business payload, not raw JSON formatting', async () => {
   const secret = 'unit-test-webhook-secret';
   const txHash = 'c'.repeat(64);
-  const retry = Buffer.from('{\n  "network": "mainnet",\n  "txHash": "' + txHash + '",\n  "providerNoise": "two"\n}');
+  const retry = Buffer.from('{
+  "network": "mainnet",
+  "txHash": "' + txHash + '",
+  "providerNoise": "two"
+}');
   const canonicalHash = crypto.createHash('sha256')
     .update(JSON.stringify({ network: 'mainnet', txHash })).digest('hex');
   const pool = fakePool({ existingHash: canonicalHash });
@@ -84,7 +92,8 @@ test('legacy raw-body digests are normalized after the stored business payload i
   assert.equal(pool.state.normalizedHash, canonicalHash);
   assert.equal(pool.state.jobInserts, 1);
 });
-\ntest('webhook inbox rejects an existing event ID with a mismatched canonical payload hash', async () => {
+
+test('webhook inbox rejects an existing event ID with a mismatched canonical payload hash', async () => {
   const secret = 'unit-test-webhook-secret';
   const raw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash: 'd'.repeat(64) }));
   const pool = fakePool({ existingHash: '0'.repeat(64), existingPayload: { txHash: 'e'.repeat(64) } });
