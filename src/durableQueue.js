@@ -51,18 +51,11 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
           SET status='processing', lease_token=?,
               lease_expires_at=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ? SECOND),
               attempts=attempts+1
-        WHERE id=(
-          SELECT candidate.id FROM (
-            SELECT id FROM background_jobs
-             WHERE attempts < max_attempts
-               AND ((status='pending' AND available_at<=UTC_TIMESTAMP(3))
-                 OR (status='processing' AND lease_expires_at<=UTC_TIMESTAMP(3)))
-             ORDER BY priority DESC, available_at ASC, id ASC
-             LIMIT 1
-          ) AS candidate
-        )
-          AND attempts < max_attempts
-          AND (status='pending' OR (status='processing' AND lease_expires_at<=UTC_TIMESTAMP(3)))`,
+        WHERE attempts < max_attempts
+          AND ((status='pending' AND available_at<=UTC_TIMESTAMP(3))
+            OR (status='processing' AND lease_expires_at<=UTC_TIMESTAMP(3)))
+        ORDER BY priority DESC, available_at ASC, id ASC
+        LIMIT 1`,
       [leaseToken, leaseSeconds]
     );
     if (!result.affectedRows) return null;
