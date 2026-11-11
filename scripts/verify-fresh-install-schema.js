@@ -21,7 +21,7 @@ async function main() {
     const schemaPath = path.join(__dirname, '..', 'sql', 'schema.sql');
     const migrationPath = path.join(__dirname, '..', 'sql', 'migrate_v4_durable_queue.sql');
     const schema = fs.readFileSync(schemaPath, 'utf8')
-      .replace(/^CREATE DATABASE IF NOT EXISTS tron_energy\\b/m, 'CREATE DATABASE IF NOT EXISTS ' + database)
+      .replace(/^CREATE DATABASE IF NOT EXISTS tron_energy\b/m, 'CREATE DATABASE IF NOT EXISTS ' + database)
       .replace(/^USE tron_energy;/m, 'USE ' + database + ';');
     const migration = fs.readFileSync(migrationPath, 'utf8');
     await connection.query(schema);
@@ -43,7 +43,7 @@ async function main() {
     );
     const type = String(columns[0]?.COLUMN_TYPE || columns[0]?.column_type || '');
     if (!type.includes('submission_unknown') || !type.includes('cancelled')) throw new Error('MISSING_V4_ENERGY_ORDER_STATES');
-    process.stdout.write('[fresh-install-schema] base schema + V4 migration (twice) passed\\n');
+    process.stdout.write('[fresh-install-schema] base schema + V4 migration (twice) passed\n');
   } finally {
     await connection.query('DROP DATABASE IF EXISTS `' + database + '`').catch(() => {});
     await connection.end();
@@ -51,6 +51,6 @@ async function main() {
 }
 
 main().catch(error => {
-  process.stderr.write('[fresh-install-schema] failed: ' + error.message + '\\n');
+  process.stderr.write('[fresh-install-schema] failed: ' + error.message + '\n');
   process.exitCode = 1;
 });
