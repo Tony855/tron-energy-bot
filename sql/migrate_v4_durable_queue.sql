@@ -11,13 +11,17 @@ CREATE TABLE IF NOT EXISTS event_inbox (
   body_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   payload_json JSON NOT NULL,
   signature_valid TINYINT(1) NOT NULL DEFAULT 0,
-  status ENUM('received','processing','processed','failed','rejected') NOT NULL DEFAULT 'received',
+  status ENUM('received','processing','processed','failed','rejected','dead') NOT NULL DEFAULT 'received',
   attempts INT UNSIGNED NOT NULL DEFAULT 0,
+  available_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  lease_token CHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,
+  lease_expires_at DATETIME(3) NULL,
   received_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   processed_at DATETIME(3) NULL,
   last_error_code VARCHAR(80) NULL,
   UNIQUE KEY uq_event_inbox_provider_event (provider, provider_event_id),
-  KEY idx_event_inbox_status_received (status, received_at),
+  KEY idx_event_inbox_status_received (status, available_at, received_at),
+  KEY idx_event_inbox_lease (status, lease_expires_at),
   KEY idx_event_inbox_network_type (network, event_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
