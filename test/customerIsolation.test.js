@@ -7,6 +7,8 @@ const root = path.join(__dirname, '..');
 const schema = fs.readFileSync(path.join(root, 'sql/schema.sql'), 'utf8');
 const bot = fs.readFileSync(path.join(root, 'src/bot.js'), 'utf8');
 const eventBridge = fs.readFileSync(path.join(root, 'src/eventBridge.js'), 'utf8');
+const eventInbox = fs.readFileSync(path.join(root, 'src/eventInbox.js'), 'utf8');
+const worker = fs.readFileSync(path.join(root, 'src/worker.js'), 'utf8');
 
 const normalize = s => String(s).replace(/\s+/g, ' ');
 
