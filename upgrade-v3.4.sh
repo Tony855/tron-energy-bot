@@ -44,9 +44,11 @@ cd "$STAGE"
 npm install --omit=dev
 npm run check
 npm test
-# Additive/idempotent schema migration; old code tolerates the extra nullable columns.
+# Apply legacy compatibility migrations, then the additive/idempotent V4 migration.
+# V4 is schema-verified before the live service is stopped or the release is swapped.
 node scripts/migrate-v3.1.js
 node scripts/migrate-v3.3.js
+node scripts/apply-v4-migration.js
 
 SWAPPED=0
 WAS_ACTIVE=0
