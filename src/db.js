@@ -18,4 +18,8 @@ async function query(sql, params = []) {
   return rows;
 }
 
-async function closePool() {\n  await pool.end();\n}\n\nmodule.exports = { pool, query, closePool };
+async function closePool() {
+  await pool.end();
+}
+
+module.exports = { pool, query, closePool };
