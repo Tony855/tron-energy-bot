@@ -50,8 +50,9 @@ test('claimJob retries MariaDB deadlocks and lock wait timeouts with bounded bac
         error.code = attempt === 1 ? 'ER_LOCK_DEADLOCK' : 'ER_LOCK_WAIT_TIMEOUT';
         throw error;
       }
-      if (attempt === 4) return [[{ id: 99, job_type: 'test.retry', payload_json: '{}', attempts: 1, max_attempts: 8, lease_token: 'lease-token' }], []];
-      return [{ affectedRows: 0 }];
+      if (attempt === 4) return [{ affectedRows: 1 }, []];
+      if (attempt === 5) return [[{ id: 99, job_type: 'test.retry', payload_json: '{}', attempts: 1, max_attempts: 8, lease_token: 'lease-token' }], []];
+      return [{ affectedRows: 0 }, []];
     }
   };
   const queue = createDurableQueue({
@@ -62,7 +63,7 @@ test('claimJob retries MariaDB deadlocks and lock wait timeouts with bounded bac
   const job = await queue.claimJob();
   assert.equal(job.id, 99);
   assert.deepEqual(delays, [10, 10]);
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   assert.match(calls[0].sql, /status='dead'/);
   assert.match(calls[1].sql, /status='dead'/);
   assert.match(calls[2].sql, /status='processing'/);
