@@ -49,6 +49,20 @@ function createOutbox({ pool, uuid = crypto.randomUUID } = {}) {
     return { ...rows[0], payload };
   }
 
+  async function renew({ id, leaseToken, leaseSeconds = 60 }) {
+    if (!Number.isInteger(leaseSeconds) || leaseSeconds < 5 || leaseSeconds > 3600) {
+      throw new Error('leaseSeconds must be between 5 and 3600');
+    }
+    const [result] = await pool.execute(
+      `UPDATE event_outbox
+          SET lease_expires_at=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ? SECOND)
+        WHERE id=? AND status='processing' AND lease_token=?
+          AND lease_expires_at>UTC_TIMESTAMP(3)`,
+      [leaseSeconds, id, leaseToken]
+    );
+    return result.affectedRows === 1;
+  }
+
   async function delivered({ id, leaseToken }) {
     const [result] = await pool.execute(
       "UPDATE event_outbox SET status='delivered',delivered_at=UTC_TIMESTAMP(3),lease_token=NULL,lease_expires_at=NULL WHERE id=? AND status='processing' AND lease_token=?",
@@ -76,7 +90,7 @@ function createOutbox({ pool, uuid = crypto.randomUUID } = {}) {
     return result.affectedRows === 1;
   }
 
-  return Object.freeze({ enqueue, claim, delivered, failed });
+  return Object.freeze({ enqueue, claim, renew, delivered, failed });
 }
 
 module.exports = { createOutbox };

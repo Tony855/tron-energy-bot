@@ -9,6 +9,7 @@ function fakeOutbox(item = { id: 7, lease_token: 'lease-a', payload: {} }) {
   return {
     calls,
     async claim(type, leaseSeconds) { calls.push(['claim', type, leaseSeconds]); return item; },
+    async renew(value) { calls.push(['renew', value]); return true; },
     async delivered(value) { calls.push(['delivered', value]); return true; },
     async failed(value) { calls.push(['failed', value]); return true; }
   };

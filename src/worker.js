@@ -11,6 +11,7 @@ const { sendTelegramMessage } = require('./notifier');
 const { verifyDepositTransfer } = require('./chainDepositVerify');
 const { creditRecharge } = require('./ledger');
 const { dispatchOutboxOnce } = require('./outboxDispatcher');
+const { startLeaseHeartbeat } = require('./leaseHeartbeat');
 
 const queue = createDurableQueue({ pool });
 const outbox = createOutbox({ pool });
@@ -137,13 +138,22 @@ async function runWorker({ pollMs = Number(process.env.WORKER_POLL_MS || 1000) }
       job = await queue.claimJob({ leaseSeconds: 90 });
       if (!job) { if (!outboxWorked) await sleep(pollMs); continue; }
       try {
-        const result = await handleJob(job);
+        const heartbeat = startLeaseHeartbeat({
+          renew: () => queue.renewJob({ id: job.id, leaseToken: job.lease_token, leaseSeconds: 90 }),
+          intervalMs: 30000, logger: console, label: 'job', id: job.id
+        });
+        let result, processingError;
+        try { result = await handleJob(job); } catch (error) { processingError = error; }
+        const leaseLost = await heartbeat.stop();
+        if (leaseLost) throw Object.assign(new Error('JOB_LEASE_LOST'), { code: 'JOB_LEASE_LOST' });
+        if (processingError) throw processingError;
         const completed = await queue.completeJob({ id: job.id, leaseToken: job.lease_token });
         if (!completed) throw Object.assign(new Error('JOB_LEASE_LOST'), { code: 'JOB_LEASE_LOST' });
         console.log('[worker] job completed', job.id, JSON.stringify(result));
       } catch (error) {
-        await queue.failJob({ id: job.id, leaseToken: job.lease_token, error });
-        if (job.job_type === 'tron.webhook.process' && job.payload?.inboxId) {
+        const leaseOwned = await queue.failJob({ id: job.id, leaseToken: job.lease_token, error });
+        // A stale worker must not overwrite the inbox state after another worker reclaimed the job.
+        if (leaseOwned && job.job_type === 'tron.webhook.process' && job.payload?.inboxId) {
           const [rows] = await pool.execute(
             'SELECT attempts,max_attempts,status FROM background_jobs WHERE id=? LIMIT 1', [job.id]
           );
