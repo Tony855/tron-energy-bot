@@ -100,7 +100,7 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
          VALUES (?, 'recharge', ?, 'telegram.send', ?, 'pending', UTC_TIMESTAMP(3))`,
         [`recharge:${order.id}:credited:${creditedUsers[0].telegram_id}`, String(order.id),
           JSON.stringify({ telegramId: creditedUsers[0].telegram_id,
-            text: `充值已审核入账\\n订单：#${order.id}\\n金额：${order.amount} USDT` })]
+            text: `充值已审核入账\n订单：#${order.id}\n金额：${order.amount} USDT` })]
       );
     }
     await conn.execute(
