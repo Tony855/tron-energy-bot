@@ -122,14 +122,15 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const webhookRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash }));
     const webhookSignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(webhookRaw).digest('hex');
     const inbox = createEventInbox({ pool, secret: webhookSecret });
-    const [accepted, duplicateEvent] = await Promise.all([
+    const [webhookResultA, webhookResultB] = await Promise.all([
       inbox.acceptWebhook(webhookRaw, webhookSignature),
       inbox.acceptWebhook(webhookRaw, webhookSignature)
     ]);
-    assert.equal(accepted.accepted, true);
-    assert.equal(accepted.duplicate, false);
-    assert.equal(duplicateEvent.duplicate, true);
-    assert.equal(duplicateEvent.eventId, accepted.eventId);
+    const accepted = [webhookResultA, webhookResultB].find(result => result.accepted && !result.duplicate);
+    const duplicateEvent = [webhookResultA, webhookResultB].find(result => result.accepted && result.duplicate);
+    assert.ok(accepted, 'exactly one concurrent webhook should create the Inbox event');
+    assert.ok(duplicateEvent, 'the competing webhook should be acknowledged as a duplicate');
+    assert.equal(accepted.eventId, duplicateEvent.eventId);
     const replayRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash, amount: '999999999', retry: true }));
     const replaySignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(replayRaw).digest('hex');
     const replayResult = await inbox.acceptWebhook(replayRaw, replaySignature);
