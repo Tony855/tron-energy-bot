@@ -78,6 +78,12 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     ]);
     assert.equal(replayResults.filter(x => x.posted).length, 1);
     assert.equal(replayResults.filter(x => x.duplicate).length, 1);
+    await assert.rejects(() => postInTransaction({
+      ...sameKeyInput, referenceId: 9999
+    }), /幂等键已存在，但用户或金额不一致/);
+    await assert.rejects(() => postInTransaction({
+      ...sameKeyInput, entryType: 'refund'
+    }), /幂等键已存在，但用户或金额不一致/);
     const [afterReplay] = await pool.execute('SELECT CAST(balance AS CHAR) balance FROM users WHERE id=?', [ledgerUserId]);
     assert.equal(Number(afterReplay[0].balance), 12);
     const debitKey = 'integration-concurrent-debit:' + crypto.randomUUID();
