@@ -35,16 +35,14 @@ async function configureBotCommands(instance) {
   const commands = ['start', 'balance', 'wallets', 'addwallet', 'deposit', 'withdraw',
     'transactions', 'status', 'report', 'referral', 'help', 'language'];
   const telegramLanguage = { 'zh-CN': 'zh', en: 'en' };
+  const buildCommands = lang => commands.map(command => ({ command, description: t(lang, 'cmd.' + command) }));
   for (const lang of SUPPORTED) {
-    const languageCode = telegramLanguage[lang];
-    if (!languageCode) continue;
+    const tg = telegramLanguage[lang];
+    if (!tg) continue;
     try {
-      await instance.api.setMyCommands(
-        commands.map(command => ({ command, description: t(lang, 'cmd.' + command) })),
-        { language_code: languageCode }
-      );
+      await instance.api.setMyCommands(buildCommands(lang), { language_code: tg });
     } catch (error) {
-      console.error('[bot] setMyCommands(' + languageCode + ') failed:', error.message);
+      console.error('[bot] setMyCommands(' + tg + ') failed:', error.message);
     }
   }
 }
