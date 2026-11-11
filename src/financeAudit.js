@@ -13,10 +13,11 @@ function validatePaidWithdrawalProof(row, { contract, decimals = 6 } = {}) {
   const proof = parseProof(row.chain_verified_json);
   let expectedRaw;
   try { expectedRaw = decimalToRaw(String(row.amount), decimals); } catch { return false; }
+  const proofHash = proof?.tx_hash == null ? String(row.tx_hash || '') : String(proof.tx_hash);
   if (!proof || !row.chain_verified_at ||
       !/^[a-f0-9]{64}$/i.test(String(row.tx_hash || '')) ||
-      !/^[a-f0-9]{64}$/i.test(String(proof.tx_hash || row.tx_hash || '')) && proof.tx_hash != null ||
-      (proof.tx_hash != null && String(proof.tx_hash).toLowerCase() !== String(row.tx_hash).toLowerCase()) ||
+      !/^[a-f0-9]{64}$/i.test(proofHash) ||
+      proofHash.toLowerCase() !== String(row.tx_hash).toLowerCase() ||
       !String(proof.contract || '').trim() ||
       (contract && String(proof.contract).toLowerCase() !== String(contract).toLowerCase()) ||
       String(proof.to || '').toLowerCase() !== String(row.destination_address || '').toLowerCase() ||
