@@ -28,9 +28,14 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
   async function acceptWebhook(raw, signature) {
     const event = parseWebhook(raw, signature, secret);
     const bodyHash = crypto.createHash('sha256').update(raw).digest('hex');
-    const conn = await dbPool.getConnection();
-    try {
-      await conn.beginTransaction();
+    // Concurrent INSERT IGNORE requests for the same unique key can deadlock
+    // under InnoDB gap/duplicate-key locking. Retry the whole idempotent unit
+    // of work, never just the failed statement, with a strict bounded backoff.
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const conn = await dbPool.getConnection();
+      try {
+        await conn.beginTransaction();
       const [insert] = await conn.execute(
         `INSERT IGNORE INTO event_inbox
           (provider,provider_event_id,network,event_type,body_sha256,payload_json,signature_valid,status)
@@ -56,13 +61,22 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
         [JSON.stringify({ inboxId, txHash: event.txHash }), dedupeKey]
       );
       await conn.commit();
-      return { accepted: true, duplicate: insert.affectedRows !== 1, eventId: event.providerEventId };
-    } catch (error) {
-      try { await conn.rollback(); } catch {}
-      throw error;
-    } finally {
-      conn.release();
+        return { accepted: true, duplicate: insert.affectedRows !== 1, eventId: event.providerEventId };
+      } catch (error) {
+        try { await conn.rollback(); } catch {}
+        const retryable = error && (
+          error.code === 'ER_LOCK_DEADLOCK' ||
+          error.code === 'ER_LOCK_WAIT_TIMEOUT' ||
+          error.errno === 1213 ||
+          error.errno === 1205
+        );
+        if (!retryable || attempt === maxAttempts) throw error;
+      } finally {
+        conn.release();
+      }
+      await new Promise(resolve => setTimeout(resolve, 10 * attempt));
     }
+    throw new Error('WEBHOOK_INBOX_RETRY_EXHAUSTED');
   }
   return Object.freeze({ acceptWebhook });
 }
