@@ -36,6 +36,8 @@ test('withdrawal chain matching requires exact contract, recipient and amount', 
   assert.equal(matchWithdrawalTransfer([transfer], { contract: 'contract', to: 'recipient', rawAmount: '5000000' }), transfer);
   assert.throws(() => matchWithdrawalTransfer([transfer], { contract: 'wrong', to: 'recipient', rawAmount: '5000000' }), /不一致/);
   assert.throws(() => matchWithdrawalTransfer([transfer], { contract: 'contract', to: 'recipient', rawAmount: '5000001' }), /不一致/);
+  assert.throws(() => matchWithdrawalTransfer([transfer], { contract: 'Contract', to: 'recipient', rawAmount: '5000000' }), /不一致/);
+  assert.throws(() => matchWithdrawalTransfer([transfer], { contract: 'contract', to: 'Recipient', rawAmount: '5000000' }), /不一致/);
   assert.throws(() => matchWithdrawalTransfer([transfer, transfer], { contract: 'contract', to: 'recipient', rawAmount: '5000000' }), /多个匹配/);
 });
 
