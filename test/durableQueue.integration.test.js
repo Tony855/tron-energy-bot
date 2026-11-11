@@ -26,8 +26,18 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
   });
 
   try {
+    // Simulate an existing installation before applying the additive V4 migration.
+    await pool.query(`CREATE TABLE energy_orders (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      status ENUM('pending_provider','processing','completed','failed','refunded')
+        NOT NULL DEFAULT 'pending_provider'
+    ) ENGINE=InnoDB`);
     const migration = fs.readFileSync(path.join(__dirname, '../sql/migrate_v4_durable_queue.sql'), 'utf8');
     await pool.query(migration);
+    await pool.query(migration); // migration must be repeatable
+    const [energyStatusColumns] = await pool.query("SHOW COLUMNS FROM energy_orders LIKE 'status'");
+    assert.match(energyStatusColumns[0].Type, /submission_unknown/);
+    assert.match(energyStatusColumns[0].Type, /cancelled/);
     const queue = createDurableQueue({ pool });
     const outbox = createOutbox({ pool });
     const suffix = crypto.randomUUID();
