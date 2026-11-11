@@ -40,7 +40,12 @@ function getStatus() { return { ...status }; }
 async function handleEvent(raw, signature) {
   // The HTTP request only authenticates and durably records the event.
   // Chain RPC and all financial side effects run in the separate worker.
-  return require('./eventInbox').acceptWebhook(raw, signature);
+  const accepted = await require('./eventInbox').acceptWebhook(raw, signature);
+  status.source = 'webhook';
+  status.lastEventAt = new Date().toISOString();
+  status.lastError = null;
+  publish('monitor:status', getStatus());
+  return accepted;
 }
 
 module.exports = { initSocket, closeSocket, handleEvent, getStatus, signatureValid, publish };
