@@ -47,7 +47,7 @@ test('Express 5 reports malformed JSON with a client error and preserves raw web
     server.once('error', reject);
   });
   t.after(async () => {
-    await new Promise(resolve => server.close(() => resolve())));
+    await new Promise(resolve => server.close(() => resolve()));
     await closePool();
   });
   const base = 'http://127.0.0.1:' + server.address().port;
