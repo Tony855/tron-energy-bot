@@ -26,8 +26,18 @@ test('deposit verification rejects amount precision beyond token decimals', () =
   assert.throws(() => verifyDepositTransfer([good], { ...expected, amount: '1.0000001' }), /精度/);
 });
 
-test('TRON recharge cannot be credited before chain verification; manual orders stay manual', () => {
+test('TRON recharge requires a matching chain proof; manual orders stay manual', () => {
   assert.throws(() => assertRechargeCanCredit({ source: 'tron', chain_verified_at: null }), /必须先完成链上核验/);
-  assert.doesNotThrow(() => assertRechargeCanCredit({ source: 'tron', chain_verified_at: '2026-10-15 01:00:00' }));
+  const order = {
+    source: 'tron', chain_verified_at: '2026-10-15 01:00:00',
+    tx_hash: good.txHash, amount: '1.250000',
+    chain_verified_json: {
+      verified: true, confirmed: true, receipt_result: 'SUCCESS',
+      tx_hash: good.txHash, contract: good.contract, decimals: 6,
+      raw_amount: '1250000', amount: '1.250000'
+    }
+  };
+  assert.doesNotThrow(() => assertRechargeCanCredit(order));
+  assert.throws(() => assertRechargeCanCredit({ ...order, chain_verified_json: null }), /核验凭证无效/);
   assert.doesNotThrow(() => assertRechargeCanCredit({ source: 'manual', chain_verified_at: null }));
 });
