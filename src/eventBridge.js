@@ -1,8 +1,6 @@
 const { signatureValid } = require('./eventSignature');
 const jwt = require('jsonwebtoken');
 const { query } = require('./db');
-const { getConfirmedTrc20Transfer, rawToDecimal } = require('./tron');
-const { saveTransfer } = require('./monitor');
 let io;
 const status = { source: 'not_configured', lastEventAt: null, lastError: null };
 function initSocket(server) {
