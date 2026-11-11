@@ -28,12 +28,18 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
     if (!Number.isInteger(priority) || priority < -32768 || priority > 32767) throw new Error('Invalid job priority');
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 100) throw new Error('Invalid maxAttempts');
     const [result] = await pool.execute(
-      `INSERT INTO background_jobs (job_type,payload_json,dedupe_key,priority,max_attempts,available_at)
-       VALUES (?,?,?,?,?,COALESCE(?,UTC_TIMESTAMP(3)))
-       ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)`,
+      `INSERT IGNORE INTO background_jobs (job_type,payload_json,dedupe_key,priority,max_attempts,available_at)
+       VALUES (?,?,?,?,?,COALESCE(?,UTC_TIMESTAMP(3)))`,
       [type, JSON.stringify(payload), dedupeKey, priority, maxAttempts, availableAt]
     );
-    return { id: result.insertId, duplicate: result.affectedRows === 0 || result.affectedRows === 2 };
+    if (result.affectedRows === 1) return { id: result.insertId, duplicate: false };
+    if (dedupeKey === null) throw new Error('Job insert was ignored unexpectedly');
+    const [existing] = await pool.execute(
+      'SELECT id FROM background_jobs WHERE dedupe_key=? LIMIT 1',
+      [dedupeKey]
+    );
+    if (!existing[0]) throw new Error('Idempotent job record could not be recovered');
+    return { id: existing[0].id, duplicate: true };
   }
 
   async function claimJob({ leaseSeconds = 60 } = {}) {
