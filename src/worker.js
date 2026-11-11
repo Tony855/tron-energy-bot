@@ -121,7 +121,7 @@ async function dispatchTelegramOutbox() {
     },
     logger: console
   });
-
+}
 
 async function handleJob(job) {
   if (job.job_type === 'tron.webhook.process') return processTronWebhook(job);
