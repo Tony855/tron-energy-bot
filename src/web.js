@@ -1,4 +1,5 @@
-const express = require('express');\nconst { randomUUID } = require('node:crypto');
+const express = require('express');
+const { randomUUID } = require('node:crypto');
 const helmet = require('helmet');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -20,7 +21,14 @@ const { canAccess, VALID_ROLES } = require('./rbac');
 
 const loginGuard = createSharedLoginGuard(pool, { maxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5), windowMs: Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000), lockMs: Number(process.env.LOGIN_LOCK_MS || 15 * 60 * 1000) });
 
-const app = express();\n\n// Server-generated request IDs support log correlation without trusting client input.\napp.use((req, res, next) => {\n  req.requestId = randomUUID();\n  res.setHeader('X-Request-Id', req.requestId);\n  next();\n});
+const app = express();
+
+// Server-generated request IDs support log correlation without trusting client input.
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 // 列表接口统一 { items, total }；前端 table() 兼容两种输入。
 function listResp(rows) {
@@ -111,7 +119,14 @@ app.get('/api/version', (req, res) => {
 
 app.get('/api/events/status', auth, (req, res) => res.json(require('./eventBridge').getStatus()));
 
-app.get('/health/live', (req, res) => res.status(200).json({ ok: true, service: 'tron-energy-bot' }));\n\napp.get('/health/ready', async (req, res) => {\n  try { await pool.query('SELECT 1'); return res.status(200).json({ ok: true, database: 'ok' }); }\n  catch { return res.status(503).json({ ok: false, database: 'error' }); }\n});\n\napp.get(['/health', '/api/health'], async (req, res) => {
+app.get('/health/live', (req, res) => res.status(200).json({ ok: true, service: 'tron-energy-bot' }));
+
+app.get('/health/ready', async (req, res) => {
+  try { await pool.query('SELECT 1'); return res.status(200).json({ ok: true, database: 'ok' }); }
+  catch { return res.status(503).json({ ok: false, database: 'error' }); }
+});
+
+app.get(['/health', '/api/health'], async (req, res) => {
   let database = 'ok';
   try { await pool.query('SELECT 1'); } catch { database = 'error'; }
   const provider = getEnergyProvider();
