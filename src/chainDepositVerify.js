@@ -1,8 +1,23 @@
 const { decimalToRaw } = require('./tron');
 
 function assertRechargeCanCredit(order) {
-  if (order && order.source === 'tron' && !order.chain_verified_at) {
+  if (!order || order.source !== 'tron') return;
+  if (!order.chain_verified_at) {
     throw new Error('链上充值必须先完成链上核验，拒绝直接入账');
+  }
+  let verification = order.chain_verified_json;
+  if (typeof verification === 'string') {
+    try { verification = JSON.parse(verification); } catch { verification = null; }
+  }
+  const decimals = Number(verification?.decimals);
+  let expectedRaw = null;
+  try { expectedRaw = decimalToRaw(String(order.amount), decimals); } catch {}
+  if (!verification || verification.verified !== true || verification.confirmed !== true ||
+      verification.receipt_result !== 'SUCCESS' ||
+      String(verification.tx_hash || '').toLowerCase() !== String(order.tx_hash || '').toLowerCase() ||
+      !String(verification.contract || '').trim() ||
+      !expectedRaw || String(verification.raw_amount) !== expectedRaw) {
+    throw new Error('链上充值核验凭证无效或与订单不匹配，拒绝入账');
   }
 }
 
