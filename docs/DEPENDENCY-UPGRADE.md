@@ -15,7 +15,7 @@ The current lockfile pins these resolved lines:
 |---|---:|---|
 | bcryptjs | 3.0.3 | API compatibility test covers synchronous hash and compare |
 | dotenv | 18.0.10 | No app-level API changes; continue using config() |
-| express | 4.22.3 | Stay on the latest Express 4 line for this batch; Express 5 is a separate compatibility migration |
+| express | 5.3.0 | Express 5 migration is isolated and covered by runtime HTTP compatibility tests plus the full Node/MariaDB matrix |
 | grammy | 1.46.0 | Telegram bot API client |
 | helmet | 8.3.0 | Security headers |
 | jsonwebtoken | 9.0.3 | JWT signing and verification |
@@ -32,7 +32,7 @@ The current lockfile pins these resolved lines:
 
 ## Deferred compatibility migrations
 
-Express 5 is not bundled into this batch. Its route matching, middleware, and async error-handling changes require a separate source audit and regression suite. A future Express 5 PR must pass all webhook, authentication, admin, Socket.IO, and error-boundary tests before adoption.
+Express 5.3.0 is enabled after the compatibility migration branch adds real HTTP regression coverage for health/version routes, static Mini App serving, route parameter matching, malformed JSON handling, and raw webhook body handling. Continue to gate production rollout on staging verification of authentication, admin flows, Socket.IO attachment, webhook signatures, and graceful shutdown.
 
 Operating-system and production database upgrades must be applied with a tested backup, restore rehearsal, maintenance window, and rollback plan. No CI matrix result substitutes for a production restore test.
 
