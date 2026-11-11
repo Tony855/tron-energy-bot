@@ -13,7 +13,7 @@ const validEnv = {
 test('loadConfig applies safe defaults and freezes the result', () => {
   const config = loadConfig(validEnv);
   assert.equal(config.host, '127.0.0.1');
-  assert.equal(config.port, 3080);
+  assert.equal(config.port, 3080);\n  assert.equal(config.dbPort, 3306);
   assert.equal(config.shutdownTimeoutMs, 15000);
   assert.equal(Object.isFrozen(config), true);
 });
@@ -26,7 +26,7 @@ test('loadConfig rejects missing security and database configuration', () => {
 
 test('loadConfig rejects invalid network and shutdown values', () => {
   assert.throws(() => loadConfig({ ...validEnv, PORT: '0' }), /PORT/);
-  assert.throws(() => loadConfig({ ...validEnv, PORT: '65536' }), /PORT/);
+  assert.throws(() => loadConfig({ ...validEnv, PORT: '65536' }), /PORT/);\n  assert.throws(() => loadConfig({ ...validEnv, DB_PORT: '70000' }), /DB_PORT/);
   assert.throws(() => loadConfig({ ...validEnv, SHUTDOWN_TIMEOUT_MS: '-1' }), /SHUTDOWN_TIMEOUT_MS/);
   assert.equal(positiveInteger('42', 1, 'VALUE', 100), 42);
 });
