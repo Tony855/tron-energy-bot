@@ -121,20 +121,32 @@ function stopWorker() { stopping = true; }
 
 if (require.main === module) {
   const { closePool } = require('./db');
+  let running;
+  let stoppingProcess = false;
   const stop = async signal => {
+    if (stoppingProcess) return;
+    stoppingProcess = true;
     stopWorker();
     console.log('[worker] received', signal);
     const timer = setTimeout(() => process.exit(1), 15000);
-    try { await closePool(); } catch (error) { console.error('[worker] database close failed'); }
-    clearTimeout(timer);
+    try {
+      if (running) await running;
+      await closePool();
+    } catch (error) {
+      console.error('[worker] shutdown failed:', error.message);
+      process.exitCode = 1;
+    } finally {
+      clearTimeout(timer);
+    }
   };
   process.once('SIGINT', () => { void stop('SIGINT'); });
   process.once('SIGTERM', () => { void stop('SIGTERM'); });
-  runWorker().catch(async error => {
+  running = runWorker().catch(async error => {
     console.error('[worker] fatal error:', error.message);
     process.exitCode = 1;
     stopWorker();
-    await closePool().catch(() => {});
+  }).finally(() => {
+    if (!stoppingProcess) void closePool().catch(() => {});
   });
 }
 
