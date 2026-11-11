@@ -35,7 +35,7 @@ test('provider router never retries another supplier after ambiguous submission'
   }});
   const router = createEnergyProviderRouter({ providers: [first, second] });
   const result = await router.submitWithSafeFailover([
-    { provider: 'first', raw: {} }, { provider: 'second', raw: {} }
+    { provider: 'first', validUntil: new Date(Date.now() + 60000).toISOString(), raw: {} }, { provider: 'second', validUntil: new Date(Date.now() + 60000).toISOString(), raw: {} }
   ], {});
   assert.equal(result.status, 'submission_unknown');
   assert.equal(secondCalls, 0);
@@ -52,6 +52,32 @@ test('provider router falls back only after definitive rejection', async () => {
   ], {});
   assert.equal(result.provider, 'second');
   assert.equal(result.status, 'processing');
+});
+
+test('provider router never submits an expired quote and continues to a fresh quote', async () => {
+  let firstCalls = 0;
+  let secondCalls = 0;
+  const first = adapter('expired', { createOrder: async () => { firstCalls++; return { accepted: true, orderId: 'stale' }; } });
+  const second = adapter('fresh', { createOrder: async () => { secondCalls++; return { accepted: true, orderId: 'fresh-order' }; } });
+  const router = createEnergyProviderRouter({ providers: [first, second], now: () => 1000 });
+  const result = await router.submitWithSafeFailover([
+    { provider: 'expired', validUntil: new Date(999).toISOString(), raw: {} },
+    { provider: 'fresh', validUntil: new Date(2000).toISOString(), raw: {} }
+  ], {});
+  assert.equal(firstCalls, 0);
+  assert.equal(secondCalls, 1);
+  assert.equal(result.orderId, 'fresh-order');
+});
+
+test('provider router rejects a submission when every quote has expired', async () => {
+  let calls = 0;
+  const provider = adapter('stale', { createOrder: async () => { calls++; return { accepted: true, orderId: 'must-not-submit' }; } });
+  const router = createEnergyProviderRouter({ providers: [provider], now: () => 1000 });
+  const result = await router.submitWithSafeFailover([
+    { provider: 'stale', validUntil: new Date(999).toISOString(), raw: {} }
+  ], {});
+  assert.deepEqual(result, { status: 'failed', errorCode: 'PROVIDER_QUOTE_EXPIRED' });
+  assert.equal(calls, 0);
 });
 
 test('provider circuit breaker opens after repeated provider errors', async () => {
