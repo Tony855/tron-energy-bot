@@ -1,6 +1,6 @@
 # V4 Architecture Refactor Plan
 
-Status: design baseline only. No production behavior or database schema is changed by this document.
+Status: implementation in progress on an isolated branch; production database remains unchanged.
 Target branch: refactor/v4-architecture; base: main.
 
 ## 1. Current-state audit
@@ -55,12 +55,12 @@ Do not move every file in one giant commit. Introduce seams and migrate one boun
 
 ### Energy order state machine
 
-quoted -> awaiting_payment or accepted -> submitting -> delegated -> completed
+quoted -> pending_provider -> submitting -> processing -> completed
 
 Failure paths:
 - quoted/accepted -> expired
-- submitting -> uncertain when provider timeout makes outcome unknown
-- uncertain -> delegated or failed only after provider/chain reconciliation
+- submitting -> submission_unknown when provider timeout makes outcome unknown
+- submission_unknown -> processing/completed/failed only after provider/chain reconciliation
 - accepted -> cancelled only before irreversible fulfillment
 
 Rules:
@@ -168,32 +168,32 @@ Implement a DB-backed inbox/outbox before adding more event providers.
 
 ## 9. Implementation snapshot (2026-11-11)
 
-Completed on the isolated refactor branch:
-- Runtime configuration validation for JWT secret, DB credentials, HTTP port, DB port, and shutdown deadline.
-- Coordinated startup and bounded graceful shutdown for Telegram polling, Socket.IO/HTTP, and the MySQL pool.
-- Separate liveness and database readiness probes; server-generated request correlation IDs.
-- Additive schema for durable event inbox, event outbox, and leased background jobs.
-- MySQL-backed job enqueue/claim/complete/retry/dead-letter primitives with lease recovery and idempotency keys.
-- CI workflow for Node.js 22 syntax checks and unit tests.
-- Legacy direct-balance energy worker quarantined and regression-tested.
-- Admin energy refunds now lock the order and post an idempotent compensating ledger entry in the same transaction; only failed orders are refundable.
-- Mini App energy ordering now fails closed while no real supplier adapter is enabled, rather than accepting a fake pending order.
+Implemented on `refactor/v4-architecture`:
+- Runtime configuration validation, coordinated startup/shutdown, request IDs, liveness/readiness probes.
+- Additive MariaDB tables for event inbox, event outbox, and durable background jobs.
+- Signed TRON webhook acceptance: HMAC validation over raw bytes, deterministic transaction identity, Inbox persistence and job enqueue in one transaction, HTTP 202 only after commit.
+- Isolated worker re-fetches confirmed TRC20 events and validates receipt success, token contract, decimals, positive raw amount, and wallet ownership before indexing.
+- TRON recharge credit requires the verified receipt proof to match transaction hash, exact raw amount, successful receipt, configured contract (when set), and the order's assigned deposit wallet.
+- Transfer and recharge credit notifications are transactionally written to Outbox; Telegram and Socket.IO dispatchers use leases, retries, and dead-letter handling.
+- Legacy monitor auto-credit path removed; legacy direct-balance energy worker remains quarantined.
+- Energy order compare-and-set transition guard added; schema/migration add `submitting` and `submission_unknown` to support ambiguous provider submissions.
+- Multi-provider quote router core added with circuit breaker; failover is permitted only after an adapter explicitly reports definitive non-acceptance.
+- No real supplier adapters are registered; Mini App energy purchasing remains disabled and fail-closed.
+- Admin energy refunds remain ledger-backed, idempotent, and restricted to confirmed failed orders.
+- CI run #162 passed Node.js 22 syntax checks and all 97 tests, including MariaDB 11.4 integration, migration idempotency, Inbox replay, queue lease recovery, Outbox lease recovery and dead letters.
 
-Not yet enabled:
-- The TRON webhook now validates the HMAC over raw bytes, writes a deterministic transaction identity to event_inbox and enqueues a job in the same MySQL transaction. HTTP returns 202 only after durable acceptance.
-- The supervised worker re-fetches confirmed TRC20 events from the chain, checks contract/decimals/positive raw amount, indexes matching wallets idempotently, verifies pending deposit orders, and only attempts automatic credit when explicitly enabled.
-- Transfer notifications are inserted into event_outbox in the same transaction as transfer indexing. Telegram and Socket.IO dispatchers claim separate event types with leases, retries, and dead-letter handling.
-- Worker shutdown is bounded and the queue uses lease recovery; `npm run worker` is also available for standalone operation.
-- The V4 SQL migration has not been applied to any production database.
-- Supplier APIs, automatic fulfillment, automatic deposit credit, and automatic signing remain disabled.
-- CI run #64 previously passed Node.js 22 syntax checks and 87 tests before the webhook/worker/outbox wiring. New parser and MariaDB integration coverage has been added, but no fresh CI result is visible yet.
-- The production database migration has not been applied. Deployments must apply `sql/migrate_v4_durable_queue.sql` under a verified backup before enabling the new webhook route/worker.
-- Multi-provider energy routing, full energy order lifecycle, database restore/rollback rehearsal, load/stress tests, and live supplier acceptance remain incomplete.
+## 10. Remaining acceptance gates
 
-## 10. Required next implementation slice
+1. Integrate the energy order transition service with real supplier adapter contracts, quote expiry, payment reservation/debit, provider status reconciliation, verified fulfillment, and ledger refunds. Supplier execution remains disabled until API credentials and sandbox/live acceptance are supplied.
+2. Add worker process crash/restart tests, provider callback authentication/replay tests, concurrent ledger posting/refund tests, and Outbox delivery failure injection.
+3. Perform a production-like migration rehearsal against a sanitized schema snapshot, then verify application rollback compatibility. The additive Inbox/Outbox/job tables should remain during application rollback; do not drop them while events or jobs exist.
+4. Perform encrypted backup and restore verification, install/upgrade/rollback smoke tests, and bounded load/stress tests. These cannot be claimed from CI alone.
+5. Complete final security review, inspect current-head CI, and merge only after all gates pass.
 
-1. Add MySQL integration tests for job lease contention, expiry recovery, dedupe-key collisions, inbox replay, and outbox atomicity.
-2. Wire verified webhook hints into the durable inbox and enqueue processing jobs transactionally.
-3. Add a separately controllable worker process with bounded concurrency, shutdown/drain, and dead-letter inspection.
-4. Publish notifications and Socket.IO events through the outbox only after the associated domain transaction commits.
-5. Centralize energy order transitions and all financial settlement through the existing ledger transaction boundary.
+## 11. Deployment and rollback constraints
+
+- The V4 migration has not been applied to production. Take and verify an encrypted backup before any deployment migration.
+- Deploy the application only after the migration is applied and checked. Do not enable automatic credit or supplier fulfillment merely because the worker is running.
+- Application rollback should use the prior application image while retaining additive event tables. Before rollback, drain or pause workers and reconcile any energy orders in `submitting` or `submission_unknown`; never blindly resubmit or refund uncertain provider orders.
+- Do not drop Inbox, Outbox, or job tables as part of routine rollback. Their durable records are required for replay and audit.
+- No private-key custody, automatic signing, or real supplier execution is enabled by this refactor.
