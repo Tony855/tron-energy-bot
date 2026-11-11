@@ -38,6 +38,76 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const [energyStatusColumns] = await pool.query("SHOW COLUMNS FROM energy_orders LIKE 'status'");
     assert.match(energyStatusColumns[0].Type, /submission_unknown/);
     assert.match(energyStatusColumns[0].Type, /cancelled/);
+    await pool.query(`CREATE TABLE users (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      balance DECIMAL(30,6) NOT NULL DEFAULT 0
+    ) ENGINE=InnoDB`);
+    await pool.query(`CREATE TABLE ledger_entries (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_id BIGINT UNSIGNED NOT NULL,
+      entry_type ENUM('deposit','referral_bonus','energy_order_debit','refund','admin_adjustment') NOT NULL,
+      amount DECIMAL(30,6) NOT NULL,
+      balance_after DECIMAL(30,6) NOT NULL,
+      reference_type VARCHAR(32) NOT NULL,
+      reference_id BIGINT UNSIGNED NOT NULL,
+      idempotency_key VARCHAR(190) NOT NULL UNIQUE,
+      note VARCHAR(500) NULL
+    ) ENGINE=InnoDB`);
+    const { postBalanceEntry } = require('../src/ledger');
+    const [seedUser] = await pool.execute('INSERT INTO users (balance) VALUES (10.000000)');
+    const ledgerUserId = seedUser.insertId;
+    const postInTransaction = async input => {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const result = await postBalanceEntry(conn, input);
+        await conn.commit();
+        return result;
+      } catch (error) {
+        await conn.rollback();
+        throw error;
+      } finally { conn.release(); }
+    };
+    const sameKeyInput = {
+      userId: ledgerUserId, delta: '2.000000', entryType: 'deposit',
+      referenceType: 'recharge', referenceId: 1001,
+      idempotencyKey: 'integration-ledger-replay:' + crypto.randomUUID()
+    };
+    const replayResults = await Promise.all([
+      postInTransaction(sameKeyInput), postInTransaction(sameKeyInput)
+    ]);
+    assert.equal(replayResults.filter(x => x.posted).length, 1);
+    assert.equal(replayResults.filter(x => x.duplicate).length, 1);
+    const [afterReplay] = await pool.execute('SELECT CAST(balance AS CHAR) balance FROM users WHERE id=?', [ledgerUserId]);
+    assert.equal(Number(afterReplay[0].balance), 12);
+    const debitKey = 'integration-concurrent-debit:' + crypto.randomUUID();
+    const debitResults = await Promise.allSettled([
+      postInTransaction({
+        userId: ledgerUserId, delta: '-7.000000', entryType: 'energy_order_debit',
+        referenceType: 'energy_order', referenceId: 2001, idempotencyKey: debitKey + ':a'
+      }),
+      postInTransaction({
+        userId: ledgerUserId, delta: '-7.000000', entryType: 'energy_order_debit',
+        referenceType: 'energy_order', referenceId: 2002, idempotencyKey: debitKey + ':b'
+      })
+    ]);
+    assert.equal(debitResults.filter(x => x.status === 'fulfilled').length, 1);
+    assert.equal(debitResults.filter(x => x.status === 'rejected').length, 1);
+    const [afterDebit] = await pool.execute('SELECT CAST(balance AS CHAR) balance FROM users WHERE id=?', [ledgerUserId]);
+    assert.equal(Number(afterDebit[0].balance), 5);
+    const refundKey = 'integration-refund:' + crypto.randomUUID();
+    const refundInput = {
+      userId: ledgerUserId, delta: '7.000000', entryType: 'refund',
+      referenceType: 'energy_order', referenceId: 2001, idempotencyKey: refundKey
+    };
+    const refunds = await Promise.all([
+      postInTransaction(refundInput), postInTransaction(refundInput)
+    ]);
+    assert.equal(refunds.filter(x => x.posted).length, 1);
+    assert.equal(refunds.filter(x => x.duplicate).length, 1);
+    const [afterRefund] = await pool.execute('SELECT CAST(balance AS CHAR) balance FROM users WHERE id=?', [ledgerUserId]);
+    assert.equal(Number(afterRefund[0].balance), 12);
+
     const queue = createDurableQueue({ pool });
     const outbox = createOutbox({ pool });
     const suffix = crypto.randomUUID();
