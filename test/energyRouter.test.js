@@ -48,7 +48,7 @@ test('provider router falls back only after definitive rejection', async () => {
   const second = adapter('second');
   const router = createEnergyProviderRouter({ providers: [first, second] });
   const result = await router.submitWithSafeFailover([
-    { provider: 'first', raw: {} }, { provider: 'second', raw: {} }
+    { provider: 'first', validUntil: new Date(Date.now() + 60000).toISOString(), raw: {} }, { provider: 'second', validUntil: new Date(Date.now() + 60000).toISOString(), raw: {} }
   ], {});
   assert.equal(result.provider, 'second');
   assert.equal(result.status, 'processing');
