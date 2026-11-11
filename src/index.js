@@ -9,6 +9,7 @@ const { createBot } = require('./bot');
 const { initSocket, closeSocket, publish } = require('./eventBridge');
 const { pool, closePool } = require('./db');
 const { createOutbox } = require('./outbox');
+const { dispatchOutboxOnce } = require('./outboxDispatcher');
 const { loadConfig } = require('./config');
 const { assertV4Schema } = require('./schemaGuard');
 const { createWorkerSupervisor, updateWorkerHealth } = require('./workerSupervisor');
@@ -65,23 +66,25 @@ async function configureBotCommands(instance) {
 async function dispatchSocketOutbox() {
   while (!shuttingDown) {
     try {
-      const item = await socketOutbox.claim('socket.emit', 60);
-      if (!item) { await new Promise(resolve => setTimeout(resolve, 500)); continue; }
-      try {
-        const eventName = String(item.payload?.eventName || '');
-        if (!/^[a-zA-Z0-9:_-]{1,80}$/.test(eventName)) throw Object.assign(new Error('INVALID_SOCKET_EVENT'), { code: 'INVALID_SOCKET_EVENT' });
-        publish(eventName, item.payload?.data || {});
-        await socketOutbox.delivered({ id: item.id, leaseToken: item.lease_token });
-      } catch (error) {
-        await socketOutbox.failed({ id: item.id, leaseToken: item.lease_token, error });
-        console.error('[outbox] socket delivery failed', item.id, error.code || 'DELIVERY_FAILED');
-      }
+      const worked = await dispatchOutboxOnce({
+        outbox: socketOutbox,
+        eventType: 'socket.emit',
+        deliver: async item => {
+          const eventName = String(item.payload?.eventName || '');
+          if (!/^[a-zA-Z0-9:_-]{1,80}$/.test(eventName)) {
+            throw Object.assign(new Error('INVALID_SOCKET_EVENT'), { code: 'INVALID_SOCKET_EVENT' });
+          }
+          publish(eventName, item.payload?.data || {});
+        },
+        logger: console
+      });
+      if (!worked) await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error('[outbox] socket dispatcher error:', error.code || error.message);
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
-}
+
 
 async function shutdown(signal = 'shutdown') {
   if (shuttingDown) return;
