@@ -8,6 +8,7 @@ const crypto = require('node:crypto');
 const mysql = require('mysql2/promise');
 const { createDurableQueue } = require('../src/durableQueue');
 const { createOutbox } = require('../src/outbox');
+const { createEventInbox } = require('../src/eventInbox');
 
 test('durable queue supports MySQL idempotency, concurrent claims, lease recovery and dead letters', {
   skip: process.env.MYSQL_INTEGRATION !== '1'
@@ -30,6 +31,27 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const queue = createDurableQueue({ pool });
     const outbox = createOutbox({ pool });
     const suffix = crypto.randomUUID();
+    const txHash = crypto.createHash('sha256').update(suffix).digest('hex');
+    const webhookSecret = 'integration-webhook-secret';
+    const webhookRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash }));
+    const webhookSignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(webhookRaw).digest('hex');
+    const inbox = createEventInbox({ pool, secret: webhookSecret });
+    const accepted = await inbox.acceptWebhook(webhookRaw, webhookSignature);
+    const duplicateEvent = await inbox.acceptWebhook(webhookRaw, webhookSignature);
+    assert.equal(accepted.accepted, true);
+    assert.equal(accepted.duplicate, false);
+    assert.equal(duplicateEvent.duplicate, true);
+    assert.equal(duplicateEvent.eventId, accepted.eventId);
+    const [inboxRows] = await pool.execute(
+      'SELECT COUNT(*) count FROM event_inbox WHERE provider=? AND provider_event_id=?',
+      ['tron', accepted.eventId]
+    );
+    const [inboxJobs] = await pool.execute(
+      'SELECT COUNT(*) count FROM background_jobs WHERE dedupe_key=?',
+      ['tron:webhook:' + accepted.eventId]
+    );
+    assert.equal(Number(inboxRows[0].count), 1);
+    assert.equal(Number(inboxJobs[0].count), 1);
 
     const outboxConn = await pool.getConnection();
     try {
