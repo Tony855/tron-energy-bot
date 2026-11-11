@@ -52,6 +52,10 @@ test('expired final leases become dead letters and cannot be reclaimed', {
       KEY idx_event_outbox_lease (status, lease_expires_at)
     ) ENGINE=InnoDB`);
 
+    // This integration test shares the ephemeral CI database with other
+    // queue suites. claimJob intentionally claims globally, so clear stale
+    // fixture rows before asserting which job is claimed.
+    await pool.query('DELETE FROM background_jobs');
     const queue = createDurableQueue({ pool });
     const outbox = createOutbox({ pool });
     const job = await queue.enqueueJob({
