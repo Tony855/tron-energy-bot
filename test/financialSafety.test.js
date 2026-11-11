@@ -43,7 +43,7 @@ test('TRON recharge credit requires matching verified receipt proof, not only a 
       raw_amount: '1250000', amount: '1.250000'
     }
   };
-  assert.doesNotThrow(() => assertRechargeCanCredit(base));
+  assert.doesNotThrow(() => assertRechargeCanCredit(base, { walletAddress: 'TDepositAddress' }));
   assert.throws(() => assertRechargeCanCredit({ ...base, chain_verified_json: null }));
   assert.throws(() => assertRechargeCanCredit({
     ...base, chain_verified_json: { ...base.chain_verified_json, tx_hash: 'b'.repeat(64) }
