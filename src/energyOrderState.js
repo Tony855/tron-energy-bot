@@ -24,9 +24,26 @@ function assertTransition(from, to) {
 }
 
 async function transitionEnergyOrder(conn, {
-  id, expectedStatus, nextStatus, providerName, providerOrderId, txHash, failureReason
+  id, expectedStatus, nextStatus, providerName, providerOrderId, txHash, failureReason,
+  providerReconciled = false, fulfillmentVerified = false, refundLedgerPosted = false
 }) {
   assertTransition(expectedStatus, nextStatus);
+  if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0) throw new Error('INVALID_ENERGY_ORDER_ID');
+  if (['submitting', 'submission_unknown'].includes(expectedStatus) && nextStatus !== 'submission_unknown' && providerReconciled !== true) {
+    const error = new Error('PROVIDER_RECONCILIATION_REQUIRED');
+    error.code = 'PROVIDER_RECONCILIATION_REQUIRED';
+    throw error;
+  }
+  if (nextStatus === 'completed' && (fulfillmentVerified !== true || !/^[a-f0-9]{64}$/i.test(String(txHash || '')))) {
+    const error = new Error('VERIFIED_FULFILLMENT_PROOF_REQUIRED');
+    error.code = 'VERIFIED_FULFILLMENT_PROOF_REQUIRED';
+    throw error;
+  }
+  if (nextStatus === 'refunded' && refundLedgerPosted !== true) {
+    const error = new Error('REFUND_LEDGER_POSTING_REQUIRED');
+    error.code = 'REFUND_LEDGER_POSTING_REQUIRED';
+    throw error;
+  }
   const fields = [];
   const values = [];
   const allowed = {
