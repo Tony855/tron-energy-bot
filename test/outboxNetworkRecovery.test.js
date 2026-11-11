@@ -32,6 +32,7 @@ test('outbox survives a real TCP outage and delivers after the HTTP endpoint ret
       claims += 1;
       return { id: 91, lease_token: 'network-lease-' + claims, payload: { event: 'notification' } };
     },
+    async renew() { return true; },
     async delivered(value) { events.push(['delivered', value]); return true; },
     async failed(value) { events.push(['failed', value.error.code || value.error.name]); return true; }
   };
