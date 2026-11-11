@@ -66,7 +66,7 @@ async function processTronWebhook(job) {
     for (const wallet of wallets) {
       const { rawToDecimal } = require('./tron');
       const record = {
-        txHash, eventIndex: index, contract: transfer.contract,
+        txHash, eventIndex: Number.isSafeInteger(Number(transfer.eventIndex)) ? Number(transfer.eventIndex) : index, contract: transfer.contract,
         from: transfer.from, to: transfer.to,
         amount: rawToDecimal(transfer.rawAmount, decimals),
         blockTimestamp: transfer.blockTimestamp,
@@ -79,20 +79,22 @@ async function processTronWebhook(job) {
       if (wallet.wallet_type === 'deposit' && String(transfer.to).toLowerCase() === String(wallet.address).toLowerCase()) {
         const [orders] = await pool.execute(
           "SELECT id,amount,status,chain_verified_at FROM recharge_orders WHERE wallet_id=? AND tx_hash=? AND event_index=? AND source='tron' LIMIT 1",
-          [wallet.id, txHash, index]
+          [wallet.id, txHash, Number.isSafeInteger(Number(transfer.eventIndex)) ? Number(transfer.eventIndex) : index]
         );
         for (const order of orders) {
-          if (order.status !== 'pending' || order.chain_verified_at) continue;
-          const verified = verifyDepositTransfer([{
-            ...transfer, txHash, contract: transfer.contract, to: transfer.to,
-            decimals: transfer.decimals, confirmed: true
-          }], {
-            contract, to: wallet.address, amount: String(order.amount), decimals
-          });
-          await pool.execute(
-            "UPDATE recharge_orders SET chain_verified_at=UTC_TIMESTAMP(3),chain_verified_json=? WHERE id=? AND status='pending' AND chain_verified_at IS NULL",
-            [JSON.stringify(verified), order.id]
-          );
+          if (order.status !== 'pending') continue;
+          if (!order.chain_verified_at) {
+            const verified = verifyDepositTransfer([{
+              ...transfer, txHash, contract: transfer.contract, to: transfer.to,
+              decimals: transfer.decimals, confirmed: true
+            }], {
+              contract, to: wallet.address, amount: String(order.amount), decimals
+            });
+            await pool.execute(
+              "UPDATE recharge_orders SET chain_verified_at=UTC_TIMESTAMP(3),chain_verified_json=? WHERE id=? AND status='pending' AND chain_verified_at IS NULL",
+              [JSON.stringify(verified), order.id]
+            );
+          }
           if (process.env.AUTO_CREDIT_CONFIRMED === 'true' && process.env.TRON_EVENT_ONLY !== 'true') {
             await creditRecharge(order.id, 'tron-webhook-worker');
           }
