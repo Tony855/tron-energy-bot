@@ -24,6 +24,7 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
   async function enqueueJob({ type, payload, dedupeKey = null, priority = 0, maxAttempts = 8, availableAt = null }) {
     if (!/^[a-zA-Z0-9_.:-]{1,100}$/.test(String(type || ''))) throw new Error('Invalid job type');
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Error('Job payload must be an object');
+    if (dedupeKey !== null && (typeof dedupeKey !== 'string' || dedupeKey.length < 1 || dedupeKey.length > 190)) throw new Error('Invalid dedupeKey');
     if (!Number.isInteger(priority) || priority < -32768 || priority > 32767) throw new Error('Invalid job priority');
     if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 100) throw new Error('Invalid maxAttempts');
     const [result] = await pool.execute(
@@ -40,6 +41,11 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
       throw new Error('leaseSeconds must be between 5 and 3600');
     }
     const leaseToken = uuid();
+    await pool.execute(
+      `UPDATE background_jobs
+          SET status='dead', lease_token=NULL, lease_expires_at=NULL, last_error_code='LEASE_EXPIRED'
+        WHERE status='processing' AND lease_expires_at<=UTC_TIMESTAMP(3) AND attempts>=max_attempts`
+    );
     const [result] = await pool.execute(
       `UPDATE background_jobs
           SET status='processing', lease_token=?,
