@@ -74,3 +74,13 @@ test('worker supervisor bounds synchronous spawn failures', () => {
   assert.equal(calls, 2);
   assert.equal(states.at(-1).status, 'failed');
 });
+
+test('worker supervisor recovers from child process error without waiting for exit', () => {
+  const h = harness({ maxRestarts: 1, baseDelayMs: 100 });
+  h.supervisor.start();
+  h.children[0].emit('error', new Error('spawn error'));
+  assert.equal(h.states.at(-1).status, 'restarting');
+  assert.equal(h.timers.length, 1);
+  h.children[0].emit('exit', -1, null);
+  assert.equal(h.timers.length, 1);
+});
