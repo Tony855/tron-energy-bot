@@ -21,6 +21,28 @@ jobs:
     name: Node.js 22 checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: tron_energy_test
+          MARIADB_USER: bot
+          MARIADB_PASSWORD: bot
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      MYSQL_INTEGRATION: '1'
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: tron_energy_test
+      DB_USER: bot
+      DB_PASSWORD: bot
     steps:
       - name: Checkout
         uses: actions/checkout@v4
