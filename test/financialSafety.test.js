@@ -39,7 +39,7 @@ test('TRON recharge credit requires matching verified receipt proof, not only a 
     source: 'tron', chain_verified_at: new Date(), tx_hash: 'a'.repeat(64), amount: '1.250000',
     chain_verified_json: {
       verified: true, confirmed: true, receipt_result: 'SUCCESS',
-      tx_hash: 'a'.repeat(64), contract: 'TContract', decimals: 6,
+      tx_hash: 'a'.repeat(64), contract: 'TContract', to: 'TDepositAddress', decimals: 6,
       raw_amount: '1250000', amount: '1.250000'
     }
   };
