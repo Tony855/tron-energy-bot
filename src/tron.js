@@ -148,12 +148,13 @@ function decimalToRaw(value, decimals = 6) {
 }
 
 function matchWithdrawalTransfer(transfers, expected) {
-  const contract = String(expected.contract || '').toLowerCase();
-  const to = String(expected.to || '').toLowerCase();
+  const contract = String(expected.contract || '');
+  const to = String(expected.to || '');
+  // TRON contract and wallet addresses are Base58Check and case-sensitive.
   const amount = String(expected.rawAmount);
   const matches = (transfers || []).filter(t =>
-    t.confirmed === true && String(t.contract || '').toLowerCase() === contract &&
-    String(t.to || '').toLowerCase() === to && String(t.rawAmount) === amount
+    t.confirmed === true && String(t.contract || '') === contract &&
+    String(t.to || '') === to && String(t.rawAmount) === amount
   );
   if (matches.length !== 1) throw new Error(matches.length ? '交易中存在多个匹配转账事件，需人工核验' : '链上交易的合约、收款地址或金额与提现单不一致');
   return matches[0];
