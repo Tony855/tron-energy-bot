@@ -10,7 +10,8 @@ const { loadConfig } = require('./config');
 
 let server;
 let bot;
-let shuttingDown = false;\nlet shutdownTimeoutMs = 15000;
+let shuttingDown = false;
+let shutdownTimeoutMs = 15000;
 
 function listen(httpServer, port, host) {
   return new Promise((resolve, reject) => {
@@ -43,7 +44,7 @@ async function configureBotCommands(instance) {
         { language_code: languageCode }
       );
     } catch (error) {
-      console.error(`[bot] setMyCommands(${languageCode}) failed:`, error.message);
+      console.error('[bot] setMyCommands(' + languageCode + ') failed:', error.message);
     }
   }
 }
@@ -51,7 +52,11 @@ async function configureBotCommands(instance) {
 async function shutdown(signal = 'shutdown') {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`[lifecycle] ${signal}: graceful shutdown started`);
+  const forceExitTimer = setTimeout(() => {
+    console.error('[lifecycle] graceful shutdown deadline exceeded; forcing process exit');
+    process.exit(1);
+  }, shutdownTimeoutMs);
+  console.log('[lifecycle] ' + signal + ': graceful shutdown started');
 
   if (bot) {
     try { await bot.stop(); }
@@ -61,7 +66,7 @@ async function shutdown(signal = 'shutdown') {
   try { await closeSocket(); }
   catch (error) { console.error('[lifecycle] socket close failed:', error.message); }
 
-  if (server?.listening) {
+  if (server && server.listening) {
     await new Promise(resolve => server.close(error => {
       if (error) console.error('[lifecycle] HTTP close failed:', error.message);
       resolve();
@@ -71,17 +76,19 @@ async function shutdown(signal = 'shutdown') {
   try { await closePool(); }
   catch (error) { console.error('[lifecycle] database close failed:', error.message); }
 
-  clearTimeout(forceExitTimer);\n  console.log('[lifecycle] shutdown complete');
+  clearTimeout(forceExitTimer);
+  console.log('[lifecycle] shutdown complete');
 }
 
 async function main() {
-  const config = loadConfig();\n  shutdownTimeoutMs = config.shutdownTimeoutMs;
+  const config = loadConfig();
+  shutdownTimeoutMs = config.shutdownTimeoutMs;
   await pool.query('SELECT 1');
 
   server = require('node:http').createServer(app);
   initSocket(server);
   await listen(server, config.port, config.host);
-  console.log(`[web] listening on ${config.host}:${config.port}`);
+  console.log('[web] listening on ' + config.host + ':' + config.port);
 
   bot = createBot();
   await configureBotCommands(bot);
