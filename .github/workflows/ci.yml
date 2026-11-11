@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node.js ${{ matrix.node-version }} / MariaDB ${{ matrix.mariadb-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [24, 26]
+        mariadb-version: ['11.4', '11.8']
+    services:
+      mariadb:
+        image: mariadb:${{ matrix.mariadb-version }}
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: tron_energy_test
+          MARIADB_USER: bot
+          MARIADB_PASSWORD: bot
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      MYSQL_INTEGRATION: '1'
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: tron_energy_test
+      DB_USER: bot
+      DB_PASSWORD: bot
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Fresh-install MariaDB schema and V4 migration
+        env:
+          INSTALL_TEST_DB_HOST: 127.0.0.1
+          INSTALL_TEST_DB_PORT: 3306
+          INSTALL_TEST_DB_USER: root
+          INSTALL_TEST_DB_PASSWORD: root
+        run: node scripts/verify-fresh-install-schema.js
+      - name: Existing-install V4 upgrade compatibility (MariaDB)
+        env:
+          INSTALL_TEST_DB_HOST: 127.0.0.1
+          INSTALL_TEST_DB_PORT: 3306
+          INSTALL_TEST_DB_USER: root
+          INSTALL_TEST_DB_PASSWORD: root
+        run: node scripts/verify-v4-upgrade.js
+      - name: Encrypted backup and isolated restore rehearsal
+        if: matrix.node-version == 26 && matrix.mariadb-version == '11.8'
+        env:
+          DB_USER: root
+          DB_PASSWORD: root
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y age mariadb-client
+          bash scripts/verify-backup-restore-ci.sh
+      - name: Dependency security audit (block high and critical)
+        run: npm audit --audit-level=high
+      - name: Syntax checks
+        run: npm run check
+      - name: Unit tests
+        run: npm test

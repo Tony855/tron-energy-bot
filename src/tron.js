@@ -122,17 +122,21 @@ async function getConfirmedTrc20Transfer(txHash) {
     e.result && e.contract_address
   );
   if (!transfers.length) throw new Error('未找到该交易的已确认 TRC20 Transfer 事件');
-  return transfers.map(e => ({
-    txHash: String(e.transaction_id).toLowerCase(),
-    contract: String(e.contract_address),
-    from: String(e.result.from || ''),
-    to: String(e.result.to || ''),
-    rawAmount: String(e.result.value || ''),
-    decimals: Number(e.token_info?.decimals ?? 6),
-    blockTimestamp: e.block_timestamp || null,
-    confirmed: true,
-    receiptResult: info.receipt.result
-  }));
+  return transfers.map((e, index) => {
+    const providerIndex = Number(e.event_index);
+    return {
+      txHash: String(e.transaction_id).toLowerCase(),
+      eventIndex: Number.isSafeInteger(providerIndex) && providerIndex >= 0 ? providerIndex : index,
+      contract: String(e.contract_address),
+      from: String(e.result.from || ''),
+      to: String(e.result.to || ''),
+      rawAmount: String(e.result.value || ''),
+      decimals: Number(e.token_info?.decimals ?? 6),
+      blockTimestamp: e.block_timestamp || null,
+      confirmed: true,
+      receiptResult: info.receipt.result
+    };
+  });
 }
 
 function decimalToRaw(value, decimals = 6) {

@@ -45,6 +45,18 @@ DB_NAME=${DB_NAME:-tron_energy}
 : "${DB_PASSWORD:?DB_PASSWORD is required in env file}"
 : "${AGE_RECIPIENT:?AGE_RECIPIENT must be set; plaintext backups are disabled}"
 : "${AGE_IDENTITY_FILE:?AGE_IDENTITY_FILE must point to the private age identity}"
+REQUIRE_OFFSITE_BACKUP=${REQUIRE_OFFSITE_BACKUP:-false}
+case "$REQUIRE_OFFSITE_BACKUP" in true|false) ;; *) echo 'ERROR: REQUIRE_OFFSITE_BACKUP must be true or false' >&2; exit 1 ;; esac
+if [[ "$REQUIRE_OFFSITE_BACKUP" == true && -z "${RCLONE_REMOTE:-}" ]]; then
+  echo 'ERROR: offsite backup is required but RCLONE_REMOTE is not configured' >&2
+  exit 1
+fi
+if [[ -n "${RCLONE_REMOTE:-}" ]]; then
+  command -v rclone >/dev/null || { echo 'ERROR: RCLONE_REMOTE set but rclone missing' >&2; exit 1; }
+  [[ "$RCLONE_REMOTE" != *..* ]] || { echo 'ERROR: unsafe RCLONE_REMOTE' >&2; exit 1; }
+  RCLONE_PATH=${RCLONE_PATH:-tron-energy-bot}
+  [[ "$RCLONE_PATH" != /* && "$RCLONE_PATH" != *..* && "$RCLONE_PATH" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo 'ERROR: unsafe RCLONE_PATH' >&2; exit 1; }
+fi
 [[ -r "$AGE_IDENTITY_FILE" ]] || { echo 'ERROR: age identity is unreadable' >&2; exit 1; }
 [[ "$(age-keygen -y "$AGE_IDENTITY_FILE")" == "$AGE_RECIPIENT" ]] || { echo 'ERROR: AGE_RECIPIENT does not match AGE_IDENTITY_FILE' >&2; exit 1; }
 [[ "$DB_NAME" =~ ^[A-Za-z0-9_]+$ ]] || { echo 'ERROR: unsafe DB_NAME' >&2; exit 1; }
@@ -67,9 +79,7 @@ chmod 600 "$OUT"/*
 for f in database.sql.gz.age app-config.tar.gz.age environment.env.age; do age -d -i "${AGE_IDENTITY_FILE:?AGE_IDENTITY_FILE must point to the private age identity}" -o "$tmp/${f%.age}" "$OUT/$f"; done
 gzip -t "$tmp/database.sql.gz"; tar -tzf "$tmp/app-config.tar.gz" >/dev/null
 if [[ -n "${RCLONE_REMOTE:-}" ]]; then
-  command -v rclone >/dev/null || { echo 'ERROR: RCLONE_REMOTE set but rclone missing' >&2; exit 1; }
-  [[ "$RCLONE_REMOTE" != *..* ]] || { echo 'ERROR: unsafe RCLONE_REMOTE' >&2; exit 1; }
-  remote_dest="$RCLONE_REMOTE/${RCLONE_PATH:-tron-energy-bot}/$stamp"
+  remote_dest="$RCLONE_REMOTE/$RCLONE_PATH/$stamp"
   rclone copy "$OUT" "$remote_dest" --create-empty-src-dirs
   rclone check "$OUT" "$remote_dest" --one-way
 fi

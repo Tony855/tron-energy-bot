@@ -30,12 +30,14 @@ async function postBalanceEntry(conn, {
   const [users] = await conn.execute('SELECT id,balance FROM users WHERE id=? FOR UPDATE', [userId]);
   if (!users[0]) throw new Error('用户不存在');
   const [existing] = await conn.execute(
-    'SELECT id,user_id,amount,balance_after FROM ledger_entries WHERE idempotency_key=? FOR UPDATE',
+    'SELECT id,user_id,amount,balance_after,entry_type,reference_type,reference_id FROM ledger_entries WHERE idempotency_key=? FOR UPDATE',
     [idempotencyKey]
   );
   if (existing.length) {
     const row = existing[0];
-    if (String(row.user_id) !== String(userId) || normalizeAmount(row.amount) !== amount) {
+    if (String(row.user_id) !== String(userId) || normalizeAmount(row.amount) !== amount ||
+        row.entry_type !== entryType || row.reference_type !== referenceType ||
+        String(row.reference_id) !== String(referenceId)) {
       throw new Error('幂等键已存在，但用户或金额不一致');
     }
     return { posted: false, duplicate: true, ledgerId: row.id, balanceAfter: row.balance_after };
@@ -72,7 +74,16 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
       return { credited: false, reason: 'already_processed' };
     }
     if (order.status !== 'pending') throw new Error('订单状态不允许审核');
-    assertRechargeCanCredit(order);
+    let depositAddress = null;
+    if (order.source === 'tron') {
+      const [walletRows] = await conn.execute(
+        'SELECT address FROM wallets WHERE id=? AND user_id=? LIMIT 1',
+        [order.wallet_id, order.user_id]
+      );
+      depositAddress = walletRows[0]?.address || null;
+      if (!depositAddress) throw new Error('链上充值订单关联的钱包不存在，拒绝入账');
+    }
+    assertRechargeCanCredit(order, { walletAddress: depositAddress });
     const posting = await postBalanceEntry(conn, {
       userId: Number(order.user_id), delta: String(order.amount), entryType: 'deposit',
       referenceType: 'recharge', referenceId: order.id,
@@ -82,6 +93,26 @@ async function creditRecharge(rechargeId, reviewer = 'system') {
     await conn.execute(
       "UPDATE recharge_orders SET status='credited', reviewed_by=?, reviewed_at=NOW() WHERE id=? AND status='pending'",
       [reviewer, order.id]
+    );
+    const [creditedUsers] = await conn.execute('SELECT telegram_id FROM users WHERE id=? LIMIT 1', [order.user_id]);
+    if (creditedUsers[0]?.telegram_id) {
+      await conn.execute(
+        `INSERT IGNORE INTO event_outbox
+          (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+         VALUES (?, 'recharge', ?, 'telegram.send', ?, 'pending', UTC_TIMESTAMP(3))`,
+        [`recharge:${order.id}:credited:${creditedUsers[0].telegram_id}`, String(order.id),
+          JSON.stringify({ telegramId: creditedUsers[0].telegram_id,
+            text: `充值已审核入账\n订单：#${order.id}\n金额：${order.amount} USDT` })]
+      );
+    }
+    await conn.execute(
+      `INSERT IGNORE INTO event_outbox
+        (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+       VALUES (?, 'recharge', ?, 'socket.emit', ?, 'pending', UTC_TIMESTAMP(3))`,
+      [`recharge:${order.id}:credited:socket`, String(order.id),
+        JSON.stringify({ eventName: 'recharge:credited', data: {
+          orderId: order.id, userId: order.user_id, amount: String(order.amount), status: 'credited'
+        } })]
     );
     const [refRows] = await conn.execute('SELECT referred_by FROM users WHERE id=?', [order.user_id]);
     if (refRows[0]?.referred_by) {

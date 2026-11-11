@@ -1,7 +1,5 @@
 const { query, pool } = require('./db');
 const { getTrc20Transfers, getTrxTransfers, extractTrxTransfers, rawToDecimal } = require('./tron');
-const { creditRecharge } = require('./ledger');
-const { sendTelegramMessage } = require('./notifier');
 
 let running = false;
 const PAGE_SIZE = Math.min(200, Math.max(1, Number(process.env.TRON_SCAN_PAGE_SIZE || 200)));
@@ -105,20 +103,7 @@ function normalizeTrc20(response, wallet) {
 
 async function saveTransfer(wallet, t, type) {
 
-  // [AUTO-CREDIT] 自动充值入账逻辑
-  if (type === 'deposit' && Number(t.amount) > 0) {
-    try {
-      const { creditRecharge } = require('./ledger');
-      const res = await creditRecharge(wallet.user_id, Number(t.amount), t.tx_hash);
-      if (res && res.credited) {
-        console.log('[Monitor] 自动入账成功:', t.tx_hash);
-        const { sendTelegramMessage } = require('./notifier');
-        const userRow = await query('SELECT telegram_id FROM users WHERE id = ?', [wallet.user_id]);
-        if (userRow.length) await sendTelegramMessage(userRow[0].telegram_id, `💰 充值到账！\n金额：${t.amount} USDT\nHash：${t.tx_hash}`);
-      }
-    } catch (e) { console.error('[Monitor] 入账异常:', e.message); }
-  }
-
+  // Financial credit is deliberately handled only by the verified recharge service.
   const conn = await pool.getConnection();
   let rechargeId = null;
   let inserted = false;
@@ -144,38 +129,55 @@ async function saveTransfer(wallet, t, type) {
       );
       rechargeId = ins.insertId;
     }
+    if (inserted) {
+      // Persist external notifications atomically with the indexed transfer.
+      await conn.execute(
+        `INSERT IGNORE INTO event_outbox
+          (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+         VALUES (?, 'wallet', ?, 'socket.emit', ?, 'pending', UTC_TIMESTAMP(3))`,
+        [`tron-transfer:${wallet.id}:${t.txHash}:${t.eventIndex}:socket`, String(wallet.id),
+          JSON.stringify({ eventName: 'tron:transfer', data: {
+            walletId: wallet.id, txHash: t.txHash, amount: t.amount, from: t.from, to: t.to,
+            token: type === 'trx' ? 'TRX' : 'USDT', confirmed: true
+          } })]
+      );
+      if (rechargeId) {
+        const adminIds = [...new Set(String(process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(x => x.trim()).filter(x => /^-?\d+$/.test(x)))];
+        const alert = `新链上充值待审核\n订单：#${rechargeId}\n用户：#${wallet.user_id}\n金额：${t.amount} USDT\n地址：${wallet.address}\n交易：${t.txHash}\n请先核验链上交易，再审核入账。`;
+        for (const adminId of adminIds) {
+          await conn.execute(
+            `INSERT IGNORE INTO event_outbox
+              (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+             VALUES (?, 'recharge', ?, 'telegram.send', ?, 'pending', UTC_TIMESTAMP(3))`,
+            [`recharge:${rechargeId}:admin:${adminId}`, String(rechargeId),
+              JSON.stringify({ telegramId: adminId, text: alert })]
+          );
+        }
+      }
+      const stamp = Number(t.blockTimestamp || 0);
+      if (stamp > 0 && Date.now() - stamp <= 15 * 60 * 1000) {
+        const incoming = t.to.toLowerCase() === wallet.address.toLowerCase();
+        const [users] = await conn.execute('SELECT telegram_id FROM users WHERE id=?', [wallet.user_id]);
+        if (users[0]?.telegram_id) {
+          const unit = type === 'trx' ? 'TRX' : 'USDT-TRC20';
+          const shortHash = `${t.txHash.slice(0, 10)}...${t.txHash.slice(-8)}`;
+          const message = `TRON 地址交易提醒\n类型：${incoming ? '收到转账' : '转出转账'}\n资产：${unit}\n金额：${t.amount}\n对方地址：${incoming ? t.from : t.to}\n交易：${shortHash}\n状态：已确认\n监控地址：${wallet.address}`;
+          await conn.execute(
+            `INSERT IGNORE INTO event_outbox
+              (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
+             VALUES (?, 'wallet', ?, 'telegram.send', ?, 'pending', UTC_TIMESTAMP(3))`,
+            [`tron-transfer:${wallet.id}:${t.txHash}:${t.eventIndex}:user`, String(wallet.id),
+              JSON.stringify({ telegramId: users[0].telegram_id, text: message })]
+          );
+        }
+      }
+    }
     await conn.commit();
   } catch (e) {
     await conn.rollback();
     if (e.code !== 'ER_DUP_ENTRY') throw e;
   } finally { conn.release(); }
 
-  if (inserted) {
-    if (rechargeId) {
-      const adminIds = [...new Set(String(process.env.ADMIN_TELEGRAM_IDS || '').split(',').map(x => x.trim()).filter(x => /^-?\d+$/.test(x)))];
-      const alert = `新链上充值待审核\n订单：#${rechargeId}\n用户：#${wallet.user_id}\n金额：${t.amount} USDT\n地址：${wallet.address}\n交易：${t.txHash}\n请先核验链上交易，再审核入账。`;
-      for (const adminId of adminIds) {
-        try { await sendTelegramMessage(adminId, alert); }
-        catch (e) { console.error('[monitor] admin recharge alert failed:', e.message); }
-      }
-    }
-    const stamp = Number(t.blockTimestamp || 0);
-    const isRecent = stamp > 0 && Date.now() - stamp <= 15 * 60 * 1000;
-    if (isRecent) {
-      const incoming = t.to.toLowerCase() === wallet.address.toLowerCase();
-      const [users] = await query('SELECT telegram_id FROM users WHERE id=?', [wallet.user_id]);
-      if (users[0]) {
-        const unit = type === 'trx' ? 'TRX' : 'USDT-TRC20';
-        const shortHash = `${t.txHash.slice(0, 10)}...${t.txHash.slice(-8)}`;
-        await sendTelegramMessage(users[0].telegram_id,
-          `TRON 地址交易提醒\n类型：${incoming ? '收到转账' : '转出转账'}\n资产：${unit}\n金额：${t.amount}\n对方地址：${incoming ? t.from : t.to}\n交易：${shortHash}\n状态：已确认\n监控地址：${wallet.address}`);
-      }
-    }
-  }
-  if (rechargeId && process.env.AUTO_CREDIT_CONFIRMED === 'true' && process.env.TRON_EVENT_ONLY !== 'true') {
-    try { await creditRecharge(rechargeId, 'tron-monitor'); }
-    catch (e) { console.error('[monitor] auto-credit error:', e.message); }
-  }
   return inserted;
 }
 

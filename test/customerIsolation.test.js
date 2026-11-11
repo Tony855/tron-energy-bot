@@ -7,6 +7,8 @@ const root = path.join(__dirname, '..');
 const schema = fs.readFileSync(path.join(root, 'sql/schema.sql'), 'utf8');
 const bot = fs.readFileSync(path.join(root, 'src/bot.js'), 'utf8');
 const eventBridge = fs.readFileSync(path.join(root, 'src/eventBridge.js'), 'utf8');
+const eventInbox = fs.readFileSync(path.join(root, 'src/eventInbox.js'), 'utf8');
+const worker = fs.readFileSync(path.join(root, 'src/worker.js'), 'utf8');
 
 const normalize = s => String(s).replace(/\s+/g, ' ');
 
@@ -26,7 +28,9 @@ test('customer wallet and transaction commands scope by authenticated Telegram i
   assert.match(b, /JOIN wallets w ON w\.id=t\.wallet_id WHERE w\.user_id=\?/);
 });
 
-test('chain events are attached only to wallets matching the observed public addresses', () => {
-  assert.match(eventBridge, /FROM wallets WHERE is_active=1 AND \(LOWER\(address\)=\? OR LOWER\(address\)=\?\)/);
-  assert.match(eventBridge, /saveTransfer\(wallet, record, 'trc20'\)/);
+test('chain events are durably queued and attached only to wallets matching observed public addresses', () => {
+  assert.match(eventBridge, /acceptWebhook\(raw, signature\)/);
+  assert.match(eventInbox, /INSERT IGNORE INTO event_inbox/);
+  assert.match(worker, /FROM wallets WHERE is_active=1 AND \(LOWER\(address\)=\? OR LOWER\(address\)=\?\)/);
+  assert.match(worker, /saveTransfer\(wallet, record, 'trc20'\)/);
 });

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TRON Energy Bot fresh installer for Debian/Ubuntu (systemd + MySQL + Node.js 22+).
+# TRON Energy Bot fresh installer for Debian/Ubuntu (systemd + MySQL + Node.js 24+).
 # Safe by default: refuses to overwrite an existing deployment/config/database account.
 set -Eeuo pipefail
 umask 077
@@ -58,7 +58,7 @@ ENV_FILE="${ENV_FILE:-/etc/tron-energy-bot.env}"
 SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
 DB_NAME="tron_energy"
 DB_USER="tronbot"
-MIN_NODE_MAJOR=22
+MIN_NODE_MAJOR=24
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info(){ printf "${GREEN}[INFO]${NC} %s\n" "$*"; }
@@ -166,21 +166,21 @@ apt_wait
 apt-get update
 apt_wait
 apt-get install -y --no-install-recommends ca-certificates curl gnupg nginx mysql-server openssl python3 age rsync
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "$MIN_NODE_MAJOR" ]]; then
-  info "配置 NodeSource Node.js 22 仓库..."
+if ! command -v node >/dev/null 2>&1 || [[ "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -lt "$MIN_NODE_MAJOR" || "$(node -p 'Number(process.versions.node.split(`.`)[0])')" -ge 27 ]]; then
+  info "配置 NodeSource Node.js 26 仓库..."
   install -d -m 0755 /etc/apt/keyrings
   curl -fsSL --retry 3 --retry-delay 2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg || die "无法获取 NodeSource GPG key"
   [[ -s /etc/apt/keyrings/nodesource.gpg ]] || die "NodeSource GPG key 为空"
   gpg --list-packets /etc/apt/keyrings/nodesource.gpg >/dev/null 2>&1 || die "NodeSource GPG key 格式无效"
   chmod 0644 /etc/apt/keyrings/nodesource.gpg
-  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
+  echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_26.x nodistro main" > /etc/apt/sources.list.d/nodesource.list
   apt_wait
   apt-get update
   apt_wait
   apt-get install -y --no-install-recommends nodejs
 fi
 node_major="$(node -p 'Number(process.versions.node.split(`.`)[0])')"
-[[ "$node_major" -ge "$MIN_NODE_MAJOR" ]] || die "需要 Node.js 22+，当前为 $(node -v)。"
+[[ "$node_major" -ge "$MIN_NODE_MAJOR" && "$node_major" -lt 27 ]] || die "需要 Node.js 24 或 26，当前为 $(node -v)。"
 info "运行环境：Node $(node -v)，npm $(npm -v)"
 
 # Copy source without VCS state or host node_modules. Refuse accidental self-copy.
@@ -191,7 +191,7 @@ fi
 id tronbot >/dev/null 2>&1 || useradd --system --home "$APP_DIR" --shell /usr/sbin/nologin tronbot
 chown -R tronbot:tronbot "$APP_DIR"
 info "安装生产依赖..."
-runuser -u tronbot -- npm --prefix "$APP_DIR" install --omit=dev --no-audit --no-fund
+runuser -u tronbot -- npm --prefix "$APP_DIR" ci --omit=dev --no-audit --no-fund
 runuser -u tronbot -- npm --prefix "$APP_DIR" run check
 runuser -u tronbot -- npm --prefix "$APP_DIR" test
 
@@ -229,10 +229,24 @@ mysql --protocol=socket < "$APP_DIR/sql/schema.sql"
 info "正在应用数据库升级补丁..."
 for migration in "$APP_DIR"/sql/migrate_*.sql; do
     if [ -f "$migration" ]; then
-        info "  -> 执行: $(basename "$migration")"
-        mysql --protocol=socket < "$migration" || info "     (跳过: 该升级可能已应用)"
+        migration_name="$(basename "$migration")"
+        info "  -> 执行: $migration_name"
+        # Historical migrations are best-effort because the fresh schema already
+        # contains some later columns/indexes. Always select the application DB:
+        # migrations that use DATABASE() otherwise create no tables or fail.
+        if [[ "$migration_name" == "migrate_v4_durable_queue.sql" ]]; then
+            mysql --protocol=socket "$DB_NAME" < "$migration" || die "V4 durable queue migration failed; refusing to start an incomplete installation."
+        else
+            mysql --protocol=socket "$DB_NAME" < "$migration" || warn "历史迁移 $migration_name 未执行（可能已由最新 schema 覆盖）；请检查日志及最终 Schema Guard。"
+        fi
     fi
 done
+
+# Verify the V4 schema explicitly before creating credentials or starting services.
+V4_TABLE_COUNT="$(mysql --protocol=socket "$DB_NAME" -Nse "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('background_jobs','event_inbox','event_outbox','energy_orders')")"
+[[ "$V4_TABLE_COUNT" == "4" ]] || die "V4 durable queue tables are incomplete ($V4_TABLE_COUNT/4)."
+V4_STATUS_TYPE="$(mysql --protocol=socket "$DB_NAME" -Nse "SELECT column_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='energy_orders' AND column_name='status' LIMIT 1")"
+[[ "$V4_STATUS_TYPE" == *submission_unknown* && "$V4_STATUS_TYPE" == *cancelled* ]] || die "energy_orders.status is missing required V4 states."
 
 # Password charset is restricted above, so SQL interpolation cannot inject statements.
 mysql --protocol=socket <<SQL

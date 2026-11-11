@@ -1,4 +1,5 @@
 const express = require('express');
+const { randomUUID } = require('node:crypto');
 const helmet = require('helmet');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -17,10 +18,18 @@ const { runFinanceAudit } = require('./financeAudit');
 const { verifyDepositTransfer } = require('./chainDepositVerify');
 const { createSharedLoginGuard } = require('./sharedLoginGuard');
 const { canAccess, VALID_ROLES } = require('./rbac');
+const { getWorkerHealth } = require('./workerSupervisor');
 
 const loginGuard = createSharedLoginGuard(pool, { maxAttempts: Number(process.env.LOGIN_MAX_ATTEMPTS || 5), windowMs: Number(process.env.LOGIN_WINDOW_MS || 15 * 60 * 1000), lockMs: Number(process.env.LOGIN_LOCK_MS || 15 * 60 * 1000) });
 
 const app = express();
+
+// Server-generated request IDs support log correlation without trusting client input.
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader('X-Request-Id', req.requestId);
+  next();
+});
 
 // 列表接口统一 { items, total }；前端 table() 兼容两种输入。
 function listResp(rows) {
@@ -37,7 +46,7 @@ if (process.env.ACCESS_LOG !== '0') {
     res.on('finish', () => {
       const ms = Date.now() - t0;
       const ip = String(req.ip || req.socket?.remoteAddress || '-');
-      console.log(`[access] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms}ms ip=${ip}`);
+      console.log(`[access] ${req.requestId} ${req.method} ${req.path} ${res.statusCode} ${ms}ms ip=${ip}`);
     });
     next();
   });
@@ -49,17 +58,17 @@ setInterval(() => {
   for (const [k, t] of webhookThrottle) if (now - t > 60_000) webhookThrottle.delete(k);
 }, 60_000).unref();
 
-app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32kb' }), async (req, res) => {
+app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32kb', inflate: false }), async (req, res) => {
   const ip = String(req.ip || req.socket?.remoteAddress || 'unknown');
   const last = webhookThrottle.get(ip) || 0;
   if (Date.now() - last < 1000) return res.status(429).json({ error: 'too many requests' });
   webhookThrottle.set(ip, Date.now());
   if (!process.env.TRON_EVENT_WEBHOOK_SECRET) return res.status(503).json({ error: 'event provider not configured' });
-  try { return res.json(await require('./eventBridge').handleEvent(req.body, req.get('x-tron-signature'))); }
+  try { return res.status(202).json(await require('./eventBridge').handleEvent(req.body, req.get('x-tron-signature'))); }
   catch (e) { return res.status(e.status || 503).json({ error: e.status ? e.message : 'chain verification unavailable' }); }
 });
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '100kb', inflate: false }));
+app.use(express.urlencoded({ extended: false, inflate: false }));
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   res.set('X-Content-Type-Options', 'nosniff');
@@ -110,6 +119,19 @@ app.get('/api/version', (req, res) => {
 });
 
 app.get('/api/events/status', auth, (req, res) => res.json(require('./eventBridge').getStatus()));
+
+app.get('/health/live', (req, res) => res.status(200).json({ ok: true, service: 'tron-energy-bot' }));
+
+app.get('/health/ready', async (req, res) => {
+  const worker = getWorkerHealth();
+  try {
+    await pool.query('SELECT 1');
+    if (worker.status !== 'running') return res.status(503).json({ ok: false, database: 'ok', worker: worker.status });
+    return res.status(200).json({ ok: true, database: 'ok', worker: 'running' });
+  } catch {
+    return res.status(503).json({ ok: false, database: 'error', worker: worker.status });
+  }
+});
 
 app.get(['/health', '/api/health'], async (req, res) => {
   let database = 'ok';
@@ -535,8 +557,13 @@ app.post('/api/deposits/:id/verify-chain', auth, async (req, res) => {
 });
 
 app.post('/api/deposits/:id/approve', auth, async (req, res) => {
-  try { const result = await creditRecharge(Number(req.params.id), req.admin.username); await audit(req.admin.username, 'approve_recharge', 'recharge', req.params.id, result); if (result.credited) { const users = await query('SELECT telegram_id FROM users WHERE id=?', [result.userId]); if (users[0]) await sendTelegramMessage(users[0].telegram_id, `充值已审核入账\n订单：${req.params.id}\n金额：${result.amount} USDT`); } res.json(result); }
-  catch (e) { res.status(400).json({ error: e.message }); }
+  try {
+    const result = await creditRecharge(Number(req.params.id), req.admin.username);
+    await audit(req.admin.username, 'approve_recharge', 'recharge', req.params.id, result);
+    res.json(result);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 app.post('/api/deposits/:id/reject', auth, async (req, res) => {
   const result = await query(
@@ -612,7 +639,7 @@ app.post('/api/withdrawals/:id/approve', auth, async (req, res) => {
     await conn.rollback();
     res.status(400).json({ error: e.message });
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 });
 
@@ -889,7 +916,7 @@ app.use((err, req, res, next) => {
 module.exports = app;
 
 // ------------------ 后台管理：能量订单操作 ------------------
-app.get('/api/admin/energy-orders', async (req, res) => {
+app.get('/api/admin/energy-orders', auth, async (req, res) => {
   try {
     const orders = await query(`
       SELECT eo.*, u.telegram_id, u.username 
@@ -903,30 +930,57 @@ app.get('/api/admin/energy-orders', async (req, res) => {
   }
 });
 
-app.post('/api/admin/energy-orders/:id/complete', async (req, res) => {
-  try {
-    const { txHash } = req.body;
-    const orderId = req.params.id;
-    await query('UPDATE energy_orders SET status = ?, tx_hash = ? WHERE id = ?', ['completed', txHash || 'manual', orderId]);
-    res.json({ success: true, message: '订单已标记为完成' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+app.post('/api/admin/energy-orders/:id/complete', auth, async (req, res) => {
+  return res.status(409).json({
+    error: '订单完成必须经过供应商履约和链上验证；当前手动完成入口已禁用'
+  });
 });
 
-app.post('/api/admin/energy-orders/:id/refund', async (req, res) => {
+app.post('/api/admin/energy-orders/:id/refund', auth, async (req, res) => {
+  const orderId = Number(req.params.id);
+  if (!Number.isSafeInteger(orderId) || orderId < 1) {
+    return res.status(400).json({ error: '订单 ID 无效' });
+  }
+  let conn;
   try {
-    const orderId = req.params.id;
-    const orders = await query('SELECT * FROM energy_orders WHERE id = ?', [orderId]);
-    if (!orders.length) return res.status(404).json({ error: '订单不存在' });
+    conn = await pool.getConnection();
+    await conn.beginTransaction();
+    const [orders] = await conn.execute('SELECT * FROM energy_orders WHERE id=? FOR UPDATE', [orderId]);
     const order = orders[0];
-    if (order.status === 'refunded') return res.status(400).json({ error: '订单已退款' });
-    
-    await query('UPDATE users SET balance = balance + ? WHERE id = ?', [order.quoted_price, order.user_id]);
-    await query('UPDATE energy_orders SET status = ? WHERE id = ?', ['refunded', orderId]);
-    res.json({ success: true, message: '已退款到用户余额' });
+    if (!order) {
+      await conn.rollback();
+      return res.status(404).json({ error: '订单不存在' });
+    }
+    if (order.status === 'refunded') {
+      await conn.commit();
+      return res.status(409).json({ error: '订单已退款' });
+    }
+    if (order.status !== 'failed') {
+      await conn.rollback();
+      return res.status(409).json({ error: '只有已确认失败的订单才能退款' });
+    }
+    const { posted, duplicate } = await postBalanceEntry(conn, {
+      userId: Number(order.user_id),
+      delta: String(order.quoted_price),
+      entryType: 'refund',
+      referenceType: 'energy_order',
+      referenceId: order.id,
+      idempotencyKey: 'energy-refund:' + order.id,
+      note: '能量订单退款；管理员：' + String(req.admin?.username || 'unknown')
+    });
+    const [updated] = await conn.execute(
+      "UPDATE energy_orders SET status='refunded' WHERE id=? AND status='failed'",
+      [orderId]
+    );
+    if (updated.affectedRows !== 1) throw new Error('订单状态发生变化，退款未完成');
+    await conn.commit();
+    return res.json({ success: true, duplicate: Boolean(duplicate), posted: Boolean(posted), message: '退款已通过财务账本处理' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    if (conn) { try { await conn.rollback(); } catch {} }
+    console.error('[energy-refund] failed:', err.message);
+    return res.status(500).json({ error: '退款失败，请核对账本后重试' });
+  } finally {
+    conn.release();
   }
 });
 

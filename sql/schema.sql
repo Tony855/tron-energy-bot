@@ -10,10 +10,11 @@ CREATE TABLE IF NOT EXISTS users (
   referred_by BIGINT UNSIGNED NULL,
   balance DECIMAL(30,6) NOT NULL DEFAULT 0,
   is_blocked TINYINT(1) NOT NULL DEFAULT 0,
+  language VARCHAR(8) NULL,
+  tron_wallet_address VARCHAR(42) DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_users_referrer FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL,
-INDEX idx_users_created (created_at),
-  tron_wallet_address VARCHAR(42) DEFAULT NULL,
+  INDEX idx_users_created (created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS wallets (
@@ -127,7 +128,7 @@ CREATE TABLE IF NOT EXISTS energy_orders (
   duration_minutes INT NOT NULL DEFAULT 60,
   quoted_price DECIMAL(30,6) NOT NULL,
   currency VARCHAR(12) NOT NULL DEFAULT 'USDT',
-  status ENUM('pending_provider','processing','completed','failed','refunded') NOT NULL DEFAULT 'pending_provider',
+  status ENUM('pending_provider','submitting','submission_unknown','processing','completed','failed','refunded','cancelled') NOT NULL DEFAULT 'pending_provider',
   provider_name VARCHAR(100) NULL,
   provider_order_id VARCHAR(190) NULL,
   tx_hash VARCHAR(100) NULL,

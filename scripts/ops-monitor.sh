@@ -8,6 +8,8 @@ BACKUP_ROOT=${BACKUP_ROOT:-/var/backups/tron-energy-bot}
 BACKUP_MAX_AGE_HOURS=${BACKUP_MAX_AGE_HOURS:-30}
 DISK_WARN_PERCENT=${DISK_WARN_PERCENT:-85}
 STATE_FILE=${OPS_MONITOR_STATE_FILE:-/var/lib/tron-energy-bot/ops-monitor-state}
+[[ "$BACKUP_MAX_AGE_HOURS" =~ ^[1-9][0-9]{0,3}$ ]] || { echo 'ERROR: BACKUP_MAX_AGE_HOURS must be 1..9999' >&2; exit 2; }
+[[ "$DISK_WARN_PERCENT" =~ ^([1-9]?[0-9]|100)$ ]] || { echo 'ERROR: DISK_WARN_PERCENT must be 1..100' >&2; exit 2; }
 mkdir -p "$(dirname "$STATE_FILE")"
 chmod 700 "$(dirname "$STATE_FILE")"
 issues=()
@@ -32,6 +34,13 @@ if [[ -d "$BACKUP_ROOT" ]]; then
     age_seconds=$(( $(date +%s) - $(stat -c %Y "$latest") ))
     if (( age_seconds > BACKUP_MAX_AGE_HOURS * 3600 )); then
       issues+=("最新备份已超过 ${BACKUP_MAX_AGE_HOURS} 小时: $(basename "$latest")")
+    fi
+    if [[ ! -s "$latest/MANIFEST.txt" || ! -s "$latest/SHA256SUMS" ||
+          ! -s "$latest/database.sql.gz.age" || ! -s "$latest/app-config.tar.gz.age" ||
+          ! -s "$latest/environment.env.age" ]]; then
+      issues+=("最新备份缺少清单、校验文件或加密归档")
+    elif ! (cd "$latest" && sha256sum -c SHA256SUMS >/dev/null 2>&1); then
+      issues+=("最新备份加密文件校验失败")
     fi
   fi
 else
