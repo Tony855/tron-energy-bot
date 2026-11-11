@@ -30,12 +30,14 @@ async function postBalanceEntry(conn, {
   const [users] = await conn.execute('SELECT id,balance FROM users WHERE id=? FOR UPDATE', [userId]);
   if (!users[0]) throw new Error('用户不存在');
   const [existing] = await conn.execute(
-    'SELECT id,user_id,amount,balance_after FROM ledger_entries WHERE idempotency_key=? FOR UPDATE',
+    'SELECT id,user_id,amount,balance_after,entry_type,reference_type,reference_id FROM ledger_entries WHERE idempotency_key=? FOR UPDATE',
     [idempotencyKey]
   );
   if (existing.length) {
     const row = existing[0];
-    if (String(row.user_id) !== String(userId) || normalizeAmount(row.amount) !== amount) {
+    if (String(row.user_id) !== String(userId) || normalizeAmount(row.amount) !== amount ||
+        row.entry_type !== entryType || row.reference_type !== referenceType ||
+        String(row.reference_id) !== String(referenceId)) {
       throw new Error('幂等键已存在，但用户或金额不一致');
     }
     return { posted: false, duplicate: true, ledgerId: row.id, balanceAfter: row.balance_after };
