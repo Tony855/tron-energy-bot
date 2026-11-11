@@ -53,6 +53,13 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Fresh-install MariaDB schema and V4 migration
+        env:
+          INSTALL_TEST_DB_HOST: 127.0.0.1
+          INSTALL_TEST_DB_PORT: 3306
+          INSTALL_TEST_DB_USER: root
+          INSTALL_TEST_DB_PASSWORD: root
+        run: node scripts/verify-fresh-install-schema.js
       - name: Dependency audit summary
         run: |
           npm audit --json > npm-audit.json || true
