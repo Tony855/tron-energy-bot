@@ -38,28 +38,9 @@ function closeSocket() {
 }
 function getStatus() { return { ...status }; }
 async function handleEvent(raw, signature) {
-  if (!signatureValid(raw, signature, process.env.TRON_EVENT_WEBHOOK_SECRET)) throw Object.assign(new Error('invalid signature'), { status: 401 });
-  let body;
-  try { body = JSON.parse(raw.toString('utf8')); } catch { throw Object.assign(new Error('invalid json'), { status: 400 }); }
-  if (body.network !== 'mainnet' || !/^[a-f0-9]{64}$/i.test(String(body.txHash || ''))) throw Object.assign(new Error('invalid event'), { status: 400 });
-  // Incoming event is only a hint. Never trust amounts, confirmations or addresses from the sender.
-  const txHash = body.txHash.toLowerCase();
-  const transfers = await getConfirmedTrc20Transfer(txHash);
-  const contract = String(process.env.TRON_USDT_CONTRACT || '');
-  if (!contract) throw new Error('TRON_USDT_CONTRACT must be configured');
-  let saved = 0;
-  for (let index = 0; index < transfers.length; index++) {
-    const t = transfers[index];
-    if (t.contract.toLowerCase() !== contract.toLowerCase() || !/^\d+$/.test(t.rawAmount) || BigInt(t.rawAmount) <= 0n) continue;
-    const wallets = await query('SELECT * FROM wallets WHERE is_active=1 AND (LOWER(address)=? OR LOWER(address)=?)', [t.from.toLowerCase(), t.to.toLowerCase()]);
-    for (const wallet of wallets) {
-      const record = { txHash, eventIndex: index, contract: t.contract, from: t.from, to: t.to, amount: rawToDecimal(t.rawAmount, Number(process.env.TRON_USDT_DECIMALS || 6)), blockTimestamp: t.blockTimestamp, confirmed: true, type: 'trc20' };
-      const inserted = await saveTransfer(wallet, record, 'trc20');
-      if (inserted) { saved++; publish('tron:transfer', { walletId: wallet.id, txHash, amount: record.amount, from: t.from, to: t.to, token: 'USDT', confirmed: true }); }
-    }
-  }
-  status.source = 'webhook'; status.lastEventAt = new Date().toISOString(); status.lastError = null;
-  publish('monitor:status', getStatus());
-  return { accepted: true, saved };
+  // The HTTP request only authenticates and durably records the event.
+  // Chain RPC and all financial side effects run in the separate worker.
+  return require('./eventInbox').acceptWebhook(raw, signature);
 }
+
 module.exports = { initSocket, closeSocket, handleEvent, getStatus, signatureValid, publish };
