@@ -31,7 +31,7 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
     // Concurrent INSERT IGNORE requests for the same unique key can deadlock
     // under InnoDB gap/duplicate-key locking. Retry the whole idempotent unit
     // of work, never just the failed statement, with a strict bounded backoff.
-    const maxAttempts = 5;
+    const maxAttempts = 8;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const conn = await dbPool.getConnection();
       try {
@@ -74,7 +74,9 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
       } finally {
         conn.release();
       }
-      await new Promise(resolve => setTimeout(resolve, 10 * attempt));
+      const backoffMs = Math.min(250, 5 * (2 ** (attempt - 1)));
+      const jitterMs = Math.floor(Math.random() * 10);
+      await new Promise(resolve => setTimeout(resolve, backoffMs + jitterMs));
     }
     throw new Error('WEBHOOK_INBOX_RETRY_EXHAUSTED');
   }
