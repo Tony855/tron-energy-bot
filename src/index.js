@@ -10,7 +10,7 @@ const { loadConfig } = require('./config');
 
 let server;
 let bot;
-let shuttingDown = false;
+let shuttingDown = false;\nlet shutdownTimeoutMs = 15000;
 
 function listen(httpServer, port, host) {
   return new Promise((resolve, reject) => {
@@ -71,11 +71,11 @@ async function shutdown(signal = 'shutdown') {
   try { await closePool(); }
   catch (error) { console.error('[lifecycle] database close failed:', error.message); }
 
-  console.log('[lifecycle] shutdown complete');
+  clearTimeout(forceExitTimer);\n  console.log('[lifecycle] shutdown complete');
 }
 
 async function main() {
-  const config = loadConfig();
+  const config = loadConfig();\n  shutdownTimeoutMs = config.shutdownTimeoutMs;
   await pool.query('SELECT 1');
 
   server = require('node:http').createServer(app);
