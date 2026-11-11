@@ -35,3 +35,14 @@ test('queue requires a database pool and validates job contracts', async () => {
   assert.equal(result.id, 7);
   assert.equal(calls.length, 1);
 });
+
+
+test('renewJob extends only the current live lease token', async () => {
+  const calls = [];
+  const pool = { async execute(sql, params) { calls.push({ sql, params }); return [{ affectedRows: 1 }]; } };
+  const queue = createDurableQueue({ pool });
+  assert.equal(await queue.renewJob({ id: 9, leaseToken: 'lease-9', leaseSeconds: 120 }), true);
+  assert.match(calls[0].sql, /lease_expires_at>UTC_TIMESTAMP/);
+  assert.match(calls[0].sql, /lease_token=\?/);
+  assert.deepEqual(calls[0].params, [120, 9, 'lease-9']);
+});
