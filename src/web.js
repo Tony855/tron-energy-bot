@@ -930,18 +930,49 @@ app.post('/api/admin/energy-orders/:id/complete', async (req, res) => {
 });
 
 app.post('/api/admin/energy-orders/:id/refund', async (req, res) => {
+  const orderId = Number(req.params.id);
+  if (!Number.isSafeInteger(orderId) || orderId < 1) {
+    return res.status(400).json({ error: '订单 ID 无效' });
+  }
+  const conn = await pool.getConnection();
   try {
-    const orderId = req.params.id;
-    const orders = await query('SELECT * FROM energy_orders WHERE id = ?', [orderId]);
-    if (!orders.length) return res.status(404).json({ error: '订单不存在' });
+    await conn.beginTransaction();
+    const [orders] = await conn.execute('SELECT * FROM energy_orders WHERE id=? FOR UPDATE', [orderId]);
     const order = orders[0];
-    if (order.status === 'refunded') return res.status(400).json({ error: '订单已退款' });
-    
-    await query('UPDATE users SET balance = balance + ? WHERE id = ?', [order.quoted_price, order.user_id]);
-    await query('UPDATE energy_orders SET status = ? WHERE id = ?', ['refunded', orderId]);
-    res.json({ success: true, message: '已退款到用户余额' });
+    if (!order) {
+      await conn.rollback();
+      return res.status(404).json({ error: '订单不存在' });
+    }
+    if (order.status === 'refunded') {
+      await conn.commit();
+      return res.status(409).json({ error: '订单已退款' });
+    }
+    if (order.status !== 'failed') {
+      await conn.rollback();
+      return res.status(409).json({ error: '只有已确认失败的订单才能退款' });
+    }
+    const { posted, duplicate } = await postBalanceEntry(conn, {
+      userId: Number(order.user_id),
+      delta: String(order.quoted_price),
+      entryType: 'refund',
+      referenceType: 'energy_order',
+      referenceId: order.id,
+      idempotencyKey: 'energy-refund:' + order.id,
+      note: '能量订单退款；管理员：' + String(req.admin?.username || 'unknown')
+    });
+    const [updated] = await conn.execute(
+      "UPDATE energy_orders SET status='refunded' WHERE id=? AND status='failed'",
+      [orderId]
+    );
+    if (updated.affectedRows !== 1) throw new Error('订单状态发生变化，退款未完成');
+    await conn.commit();
+    return res.json({ success: true, duplicate: Boolean(duplicate), posted: Boolean(posted), message: '退款已通过财务账本处理' });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    try { await conn.rollback(); } catch {}
+    console.error('[energy-refund] failed:', err.message);
+    return res.status(500).json({ error: '退款失败，请核对账本后重试' });
+  } finally {
+    conn.release();
   }
 });
 
