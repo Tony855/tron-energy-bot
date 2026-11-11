@@ -36,7 +36,7 @@ test('bcryptjs 3 can hash and verify existing password format', () => {
 
 test('dotenv 18 keeps the config parser contract used by the application', () => {
   const dotenv = require('dotenv');
-  const parsed = dotenv.parse('BOT_TOKEN=sample-token\\nJWT_SECRET="a-long-secret-value"');
+  const parsed = dotenv.parse('BOT_TOKEN=sample-token\nJWT_SECRET="a-long-secret-value"');
   assert.equal(parsed.BOT_TOKEN, 'sample-token');
   assert.equal(parsed.JWT_SECRET, 'a-long-secret-value');
 });
