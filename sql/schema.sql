@@ -10,10 +10,11 @@ CREATE TABLE IF NOT EXISTS users (
   referred_by BIGINT UNSIGNED NULL,
   balance DECIMAL(30,6) NOT NULL DEFAULT 0,
   is_blocked TINYINT(1) NOT NULL DEFAULT 0,
+  language VARCHAR(8) NULL,
+  tron_wallet_address VARCHAR(42) DEFAULT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_users_referrer FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL,
-INDEX idx_users_created (created_at),
-  tron_wallet_address VARCHAR(42) DEFAULT NULL,
+  INDEX idx_users_created (created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS wallets (
