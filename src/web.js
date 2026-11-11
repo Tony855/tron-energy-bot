@@ -522,6 +522,9 @@ app.post('/api/deposits/:id/verify-chain', auth, async (req, res) => {
     );
     const order = rows[0];
     if (!order) return res.status(404).json({ error: '充值订单不存在' });
+    if (order.status !== 'pending') {
+      return res.status(409).json({ error: '只有待审核充值单允许执行链上核验' });
+    }
     if (order.source !== 'tron' || !order.tx_hash || !order.wallet_id || !order.deposit_address) {
       throw new Error('该订单不是关联专属充值地址的链上充值单，不能自动进行链上核验');
     }
@@ -546,8 +549,18 @@ app.post('/api/deposits/:id/verify-chain', auth, async (req, res) => {
       status_at_verification: order.status,
       note: '链上核验通过；此操作不会自动入账，仍需管理员单独审核。'
     };
-    await query('UPDATE recharge_orders SET chain_verified_at=NOW(),chain_verified_json=? WHERE id=?',
-      [JSON.stringify(report), id]);
+    // Verification is performed outside a DB transaction because the chain RPC may
+    // be slow. The conditional update is the final race guard against approve/reject:
+    // if another request changed the order state meanwhile, this proof is not stored.
+    const [updated] = await pool.execute(
+      `UPDATE recharge_orders
+          SET chain_verified_at=UTC_TIMESTAMP(3),chain_verified_json=?
+        WHERE id=? AND status='pending' AND source='tron' AND tx_hash=? AND wallet_id=?`,
+      [JSON.stringify(report), id, order.tx_hash, order.wallet_id]
+    );
+    if (updated.affectedRows !== 1) {
+      return res.status(409).json({ error: '充值单状态或链上交易信息已变化，请刷新后重新核验' });
+    }
     await audit(req.admin.username, 'verify_deposit_chain', 'recharge', id, report);
     res.json(report);
   } catch (e) {
