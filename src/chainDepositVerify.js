@@ -40,7 +40,7 @@ function assertRechargeCanCredit(order, { walletAddress, env = process.env } = {
   if (!verification || verification.verified !== true || verification.confirmed !== true ||
       !/^[a-f0-9]{64}$/.test(txHash) || !/^[a-f0-9]{64}$/.test(proofHash) ||
       proofHash !== txHash || !contract ||
-      (configuredContract && contract !== configuredContract) ||
+      (!configuredContract || contract !== configuredContract) ||
       !Number.isInteger(configuredDecimals) || configuredDecimals < 0 || configuredDecimals > 18 ||
       decimals !== configuredDecimals || !destination ||
       (expectedDestination && destination !== expectedDestination) ||
