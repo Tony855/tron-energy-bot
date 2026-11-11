@@ -48,7 +48,7 @@ test('TRC20 scanner accepts only exact configured contract, Base58 addresses and
 
 test('webhook worker uses exact Base58 address lookup rather than case-folded SQL', () => {
   const source = fs.readFileSync(path.join(root, 'src/worker.js'), 'utf8');
-  assert.match(source, /address IN \(\?,\?\)/);
+  assert.match(source, /BINARY address IN \(BINARY \?,BINARY \?\)/);
   assert.doesNotMatch(source, /LOWER\(address\)/);
   assert.match(source, /String\(transfer\.to\) === String\(wallet\.address\)/);
   assert.match(source, /String\(transfer\.contract\) !== contract/);
