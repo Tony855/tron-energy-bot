@@ -61,7 +61,7 @@ async function processTronWebhook(job) {
         !/^\d+$/.test(String(transfer.rawAmount)) || BigInt(transfer.rawAmount) <= 0n ||
         Number(transfer.decimals) !== decimals) continue;
     const [wallets] = await pool.execute(
-      'SELECT * FROM wallets WHERE is_active=1 AND address IN (?,?)',
+      'SELECT * FROM wallets WHERE is_active=1 AND BINARY address IN (BINARY ?,BINARY ?)',
       [String(transfer.from), String(transfer.to)]
     );
     for (const wallet of wallets) {
