@@ -60,6 +60,13 @@ jobs:
           INSTALL_TEST_DB_USER: root
           INSTALL_TEST_DB_PASSWORD: root
         run: node scripts/verify-fresh-install-schema.js
+      - name: Existing-install V4 upgrade compatibility (MariaDB)
+        env:
+          INSTALL_TEST_DB_HOST: 127.0.0.1
+          INSTALL_TEST_DB_PORT: 3306
+          INSTALL_TEST_DB_USER: root
+          INSTALL_TEST_DB_PASSWORD: root
+        run: node scripts/verify-v4-upgrade.js
       - name: Dependency audit summary
         run: |
           npm audit --json > npm-audit.json || true
