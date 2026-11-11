@@ -6,7 +6,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "check": "for f in src/*.js src/providers/*.js test/*.js; do node --check \"$f\" || exit 1; done && for f in scripts/*.sh install.sh upgrade-*.sh; do [ -f \"$f\" ] && bash -n \"$f\" || true; done",
+    "check": "for f in src/*.js src/providers/*.js test/*.js scripts/*.js; do node --check \"$f\" || exit 1; done && for f in scripts/*.sh install.sh upgrade-*.sh; do [ -f \"$f\" ] && bash -n \"$f\" || true; done",
     "test": "node --test --test-concurrency=1",
     "worker": "node src/worker.js"
   },
