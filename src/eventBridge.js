@@ -29,7 +29,8 @@ function initSocket(server) {
   });
   return io;
 }
-function publish(type, payload) { if (io) io.to('admins').emit(type, payload); }\nfunction closeSocket() {
+function publish(type, payload) { if (io) io.to('admins').emit(type, payload); }
+function closeSocket() {
   if (!io) return Promise.resolve();
   const current = io;
   io = null;
