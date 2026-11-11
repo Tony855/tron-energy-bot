@@ -39,12 +39,13 @@ test('TRON recharge credit requires matching verified receipt proof, not only a 
     source: 'tron', chain_verified_at: new Date(), tx_hash: 'a'.repeat(64), amount: '1.250000',
     chain_verified_json: {
       verified: true, confirmed: true, receipt_result: 'SUCCESS',
-      tx_hash: 'a'.repeat(64), contract: 'TContract', decimals: 6,
+      tx_hash: 'a'.repeat(64), contract: 'TContract', to: 'TDepositAddress', decimals: 6,
       raw_amount: '1250000', amount: '1.250000'
     }
   };
-  assert.doesNotThrow(() => assertRechargeCanCredit(base));
+  assert.doesNotThrow(() => assertRechargeCanCredit(base, { walletAddress: 'TDepositAddress', env: { TRON_USDT_CONTRACT: 'TContract', TRON_USDT_DECIMALS: '6' } }));
   assert.throws(() => assertRechargeCanCredit({ ...base, chain_verified_json: null }));
+  assert.throws(() => assertRechargeCanCredit(base, { walletAddress: 'TDepositAddress', env: {} }), /核验凭证无效/);
   assert.throws(() => assertRechargeCanCredit({
     ...base, chain_verified_json: { ...base.chain_verified_json, tx_hash: 'b'.repeat(64) }
   }));
@@ -52,4 +53,13 @@ test('TRON recharge credit requires matching verified receipt proof, not only a 
     ...base, chain_verified_json: { ...base.chain_verified_json, receipt_result: 'FAILED' }
   }));
   assert.doesNotThrow(() => assertRechargeCanCredit({ source: 'manual', amount: '1' }));
+});
+
+
+test('manual chain verification stores proof only while the order remains pending and unchanged', () => {
+  const web = read('src/web.js');
+  const route = web.slice(web.indexOf("app.post('/api/deposits/:id/verify-chain'"), web.indexOf("app.post('/api/deposits/:id/approve'"));
+  assert.match(route, /order\.status !== 'pending'/);
+  assert.match(route, /WHERE id=\? AND status='pending' AND source='tron' AND tx_hash=\? AND wallet_id=\?/);
+  assert.match(route, /updated\.affectedRows !== 1/);
 });

@@ -151,3 +151,10 @@ The read-only finance audit also checks that every paid withdrawal has a chain-v
 Audit result sets use bounded queries. Each query fetches one row beyond its display limit; if that sentinel row exists, the report includes `audit_result_truncated` and returns `ok=false`. A truncated report is not a clean audit. Investigate and rerun with a deliberate pagination/export procedure before approval.
 
 The finance audit is an integrity signal, not independent chain finality: it validates the stored withdrawal proof against the stored withdrawal record, but does not re-query the TRON network during each audit. Independent on-chain reconciliation remains a separate release gate.
+
+
+## TRON deposit proof and verification race controls
+
+A chain-deposit proof is accepted for credit only when all of the following match the pending recharge row and runtime configuration: a 64-character transaction hash, an explicit successful receipt result, confirmed transfer, configured USDT contract, configured token decimals, exact raw token amount, and the destination wallet address. Missing contract configuration fails closed. The proof is checked again inside the ledger credit path; an earlier verification timestamp alone is never sufficient.
+
+The admin chain-verification route performs the external chain lookup before writing to avoid holding a database transaction during a slow RPC. It then uses a conditional update requiring the recharge row to remain pending and its source, transaction hash, and wallet association to remain unchanged. If approval/rejection wins the race, verification returns a conflict and does not overwrite the terminal order state.
