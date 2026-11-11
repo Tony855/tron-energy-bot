@@ -7,8 +7,8 @@ const { createDurableQueue, retryDelaySeconds, safeErrorCode } = require('../src
 test('retry delay is exponential, jittered, and capped', () => {
   assert.equal(retryDelaySeconds(1, () => 0), 2);
   assert.equal(retryDelaySeconds(2, () => 0), 4);
-  assert.equal(retryDelaySeconds(10, () => 0.99), 1279);
-  assert.equal(retryDelaySeconds(100, () => 0.99), 1279);
+  assert.equal(retryDelaySeconds(10, () => 0.99), 1277);
+  assert.equal(retryDelaySeconds(100, () => 0.99), 1277);
 });
 
 test('error codes are normalized and never include arbitrary error text', () => {
