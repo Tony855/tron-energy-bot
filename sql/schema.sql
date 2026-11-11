@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS energy_orders (
   duration_minutes INT NOT NULL DEFAULT 60,
   quoted_price DECIMAL(30,6) NOT NULL,
   currency VARCHAR(12) NOT NULL DEFAULT 'USDT',
-  status ENUM('pending_provider','processing','completed','failed','refunded') NOT NULL DEFAULT 'pending_provider',
+  status ENUM('pending_provider','submitting','submission_unknown','processing','completed','failed','refunded','cancelled') NOT NULL DEFAULT 'pending_provider',
   provider_name VARCHAR(100) NULL,
   provider_order_id VARCHAR(190) NULL,
   tx_hash VARCHAR(100) NULL,
