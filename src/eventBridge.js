@@ -29,7 +29,12 @@ function initSocket(server) {
   });
   return io;
 }
-function publish(type, payload) { if (io) io.to('admins').emit(type, payload); }\nfunction closeSocket() {\n  if (!io) return Promise.resolve();\n  const current = io;\n  io = null;\n  return new Promise(resolve => current.close(() => resolve()));\n}
+function publish(type, payload) { if (io) io.to('admins').emit(type, payload); }\nfunction closeSocket() {
+  if (!io) return Promise.resolve();
+  const current = io;
+  io = null;
+  return new Promise(resolve => current.close(() => resolve()));
+}
 function getStatus() { return { ...status }; }
 async function handleEvent(raw, signature) {
   if (!signatureValid(raw, signature, process.env.TRON_EVENT_WEBHOOK_SECRET)) throw Object.assign(new Error('invalid signature'), { status: 401 });
