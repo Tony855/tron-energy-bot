@@ -229,8 +229,16 @@ mysql --protocol=socket < "$APP_DIR/sql/schema.sql"
 info "正在应用数据库升级补丁..."
 for migration in "$APP_DIR"/sql/migrate_*.sql; do
     if [ -f "$migration" ]; then
-        info "  -> 执行: $(basename "$migration")"
-        mysql --protocol=socket < "$migration" || info "     (跳过: 该升级可能已应用)"
+        migration_name="$(basename "$migration")"
+        info "  -> 执行: $migration_name"
+        # Historical migrations are best-effort because the fresh schema already
+        # contains some later columns/indexes. Always select the application DB:
+        # migrations that use DATABASE() otherwise create no tables or fail.
+        if [[ "$migration_name" == "migrate_v4_durable_queue.sql" ]]; then
+            mysql --protocol=socket "$DB_NAME" < "$migration" || die "V4 durable queue migration failed; refusing to start an incomplete installation."
+        else
+            mysql --protocol=socket "$DB_NAME" < "$migration" || warn "历史迁移 $migration_name 未执行（可能已由最新 schema 覆盖）；请检查日志及最终 Schema Guard。"
+        fi
     fi
 done
 
