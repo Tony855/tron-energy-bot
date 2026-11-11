@@ -60,3 +60,11 @@ test('fresh schema has valid users column and constraint ordering', () => {
   assert.ok(users.indexOf('tron_wallet_address') < users.indexOf('CONSTRAINT fk_users_referrer'));
   assert.doesNotMatch(users, /,\s*$/);
 });
+
+test('installer verifies all V4 tables and required energy order enum values before service setup', () => {
+  assert.match(script, /V4_TABLE_COUNT=.*information_schema\.tables/);
+  assert.match(script, /\[\[ "\$V4_TABLE_COUNT" == "4" \]\]/);
+  assert.match(script, /V4_STATUS_TYPE=.*information_schema\.columns/);
+  assert.match(script, /submission_unknown/);
+  assert.match(script, /energy_orders\.status is missing required V4 states/);
+});
