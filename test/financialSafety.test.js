@@ -23,3 +23,12 @@ test('Mini App refuses to create energy orders when no real supplier is enabled'
   assert.match(route, /if \(!provider\.enabled\)/);
   assert.ok(route.indexOf('if (!provider.enabled)') < route.indexOf('INSERT INTO energy_orders'));
 });
+
+
+test('legacy admin energy routes require auth and completion is fail-closed', () => {
+  const web = read('src/web.js');
+  assert.ok(web.includes("app.get('/api/admin/energy-orders', auth,"));
+  assert.ok(web.includes("app.post('/api/admin/energy-orders/:id/complete', auth,"));
+  assert.ok(web.includes("app.post('/api/admin/energy-orders/:id/refund', auth,"));
+  assert.ok(web.includes('订单完成必须经过供应商履约和链上验证'));
+});
