@@ -31,16 +31,10 @@ async function main() {
       [database, 'energy_orders', 'status']
     );
     const statusType = String(columns[0]?.COLUMN_TYPE || columns[0]?.column_type || '');
-    if (!statusType.includes('submission_unknown') || !statusType.includes('cancelled')) {
-      throw new Error('V4_ENERGY_ORDER_STATES_MISSING');
-    }
-    process.stdout.write('[v4-migration] applied and schema-verified for ' + database + '\\n');
+    if (!statusType.includes('submission_unknown') || !statusType.includes('cancelled')) throw new Error('V4_ENERGY_ORDER_STATES_MISSING');
+    process.stdout.write('[v4-migration] applied and schema-verified for ' + database + '\n');
   } finally {
     await connection.end();
   }
 }
-
-main().catch(error => {
-  process.stderr.write('[v4-migration] failed: ' + error.message + '\\n');
-  process.exitCode = 1;
-});
+main().catch(error => { process.stderr.write('[v4-migration] failed: ' + error.message + '\n'); process.exitCode = 1; });
