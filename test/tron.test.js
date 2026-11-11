@@ -62,4 +62,8 @@ test('extracts confirmed native TRX transfers and converts hex addresses', () =>
   assert.equal(result[0].amount, '2.5');
   assert.equal(result[0].contract, 'TRX_NATIVE');
   assert.equal(result[0].eventIndex, -1);
+  const caseMutated = { ...good, raw_data: { contract: [{ type: 'TransferContract', parameter: { value: {
+    owner_address: wallet.toLowerCase(), to_address: 'TQn9Y2khEsLJW1ChVWFMSMeRDow5KcbLSE', amount: 2500000
+  } } }] } };
+  assert.equal(extractTrxTransfers({ data: [caseMutated] }, wallet).length, 0);
 });
