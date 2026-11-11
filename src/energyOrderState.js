@@ -58,8 +58,8 @@ async function transitionEnergyOrder(conn, {
   await conn.execute(
     `INSERT IGNORE INTO event_outbox
       (event_key,aggregate_type,aggregate_id,event_type,payload_json,status,available_at)
-     VALUES (?, 'energy_order', ?, 'energy.order.state', ?, 'pending', UTC_TIMESTAMP(3))`,
-    [eventKey, String(id), JSON.stringify({ orderId: id, from: expectedStatus, to: nextStatus })]
+     VALUES (?, 'energy_order', ?, 'socket.emit', ?, 'pending', UTC_TIMESTAMP(3))`,
+    [eventKey, String(id), JSON.stringify({ eventName: 'energy:order:state', data: { orderId: id, from: expectedStatus, to: nextStatus } })]
   );
   return { id, status: nextStatus };
 }
