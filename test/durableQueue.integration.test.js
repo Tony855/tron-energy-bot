@@ -7,6 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const mysql = require('mysql2/promise');
 const { createDurableQueue } = require('../src/durableQueue');
+const { createOutbox } = require('../src/outbox');
 
 test('durable queue supports MySQL idempotency, concurrent claims, lease recovery and dead letters', {
   skip: process.env.MYSQL_INTEGRATION !== '1'
@@ -27,7 +28,36 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const migration = fs.readFileSync(path.join(__dirname, '../sql/migrate_v4_durable_queue.sql'), 'utf8');
     await pool.query(migration);
     const queue = createDurableQueue({ pool });
+    const outbox = createOutbox({ pool });
     const suffix = crypto.randomUUID();
+
+    const outboxConn = await pool.getConnection();
+    try {
+      await outboxConn.beginTransaction();
+      await outbox.enqueue(outboxConn, {
+        eventKey: 'outbox:' + suffix,
+        aggregateType: 'test',
+        aggregateId: suffix,
+        eventType: 'telegram.send',
+        payload: { telegramId: '1', text: 'integration test' }
+      });
+      await outbox.enqueue(outboxConn, {
+        eventKey: 'outbox:' + suffix,
+        aggregateType: 'test',
+        aggregateId: suffix,
+        eventType: 'telegram.send',
+        payload: { telegramId: '1', text: 'duplicate should be ignored' }
+      });
+      await outboxConn.commit();
+    } catch (error) {
+      await outboxConn.rollback();
+      throw error;
+    } finally { outboxConn.release(); }
+    const outboxItem = await outbox.claim('telegram.send');
+    assert.ok(outboxItem);
+    assert.equal(outboxItem.payload.text, 'integration test');
+    assert.equal(await outbox.delivered({ id: outboxItem.id, leaseToken: outboxItem.lease_token }), true);
+    assert.equal(await outbox.delivered({ id: outboxItem.id, leaseToken: outboxItem.lease_token }), false);
 
     const first = await queue.enqueueJob({
       type: 'test.dedupe',
