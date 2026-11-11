@@ -57,7 +57,7 @@ setInterval(() => {
   for (const [k, t] of webhookThrottle) if (now - t > 60_000) webhookThrottle.delete(k);
 }, 60_000).unref();
 
-app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32kb' }), async (req, res) => {
+app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32kb', inflate: false }), async (req, res) => {
   const ip = String(req.ip || req.socket?.remoteAddress || 'unknown');
   const last = webhookThrottle.get(ip) || 0;
   if (Date.now() - last < 1000) return res.status(429).json({ error: 'too many requests' });
@@ -66,8 +66,8 @@ app.post('/api/events/tron', express.raw({ type: 'application/json', limit: '32k
   try { return res.json(await require('./eventBridge').handleEvent(req.body, req.get('x-tron-signature'))); }
   catch (e) { return res.status(e.status || 503).json({ error: e.status ? e.message : 'chain verification unavailable' }); }
 });
-app.use(express.json({ limit: '100kb' }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '100kb', inflate: false }));
+app.use(express.urlencoded({ extended: false, inflate: false }));
 app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   res.set('X-Content-Type-Options', 'nosniff');
