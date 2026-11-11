@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+const { assertRechargeCanCredit } = require('../src/chainDepositVerify');
 
 test('admin energy refunds use an idempotent ledger posting in the same transaction', () => {
   const web = read('src/web.js');
@@ -31,4 +32,24 @@ test('legacy admin energy routes require auth and completion is fail-closed', ()
   assert.ok(web.includes("app.post('/api/admin/energy-orders/:id/complete', auth,"));
   assert.ok(web.includes("app.post('/api/admin/energy-orders/:id/refund', auth,"));
   assert.ok(web.includes('订单完成必须经过供应商履约和链上验证'));
+});
+
+test('TRON recharge credit requires matching verified receipt proof, not only a timestamp', () => {
+  const base = {
+    source: 'tron', chain_verified_at: new Date(), tx_hash: 'a'.repeat(64), amount: '1.250000',
+    chain_verified_json: {
+      verified: true, confirmed: true, receipt_result: 'SUCCESS',
+      tx_hash: 'a'.repeat(64), contract: 'TContract', decimals: 6,
+      raw_amount: '1250000', amount: '1.250000'
+    }
+  };
+  assert.doesNotThrow(() => assertRechargeCanCredit(base));
+  assert.throws(() => assertRechargeCanCredit({ ...base, chain_verified_json: null }));
+  assert.throws(() => assertRechargeCanCredit({
+    ...base, chain_verified_json: { ...base.chain_verified_json, tx_hash: 'b'.repeat(64) }
+  }));
+  assert.throws(() => assertRechargeCanCredit({
+    ...base, chain_verified_json: { ...base.chain_verified_json, receipt_result: 'FAILED' }
+  }));
+  assert.doesNotThrow(() => assertRechargeCanCredit({ source: 'manual', amount: '1' }));
 });
