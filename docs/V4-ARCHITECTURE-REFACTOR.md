@@ -197,3 +197,10 @@ Implemented on `refactor/v4-architecture`:
 - Application rollback should use the prior application image while retaining additive event tables. Before rollback, drain or pause workers and reconcile any energy orders in `submitting` or `submission_unknown`; never blindly resubmit or refund uncertain provider orders.
 - Do not drop Inbox, Outbox, or job tables as part of routine rollback. Their durable records are required for replay and audit.
 - No private-key custody, automatic signing, or real supplier execution is enabled by this refactor.
+
+
+## Worker process supervision (follow-up)
+
+The API process supervises the durable worker child process. Unexpected child exit or spawn errors trigger bounded exponential restart delays controlled by `WORKER_RESTART_BASE_MS` and `WORKER_RESTART_MAX_MS`. The number of automatic retries is capped by `WORKER_MAX_RESTARTS`; after the cap, worker health becomes `failed` and readiness remains HTTP 503 until the service is restarted or an operator intervenes. Graceful shutdown cancels pending restarts and does not relaunch the worker.
+
+`/health/ready` now requires both a reachable database and a worker process that emitted its successful spawn event. This is process-level readiness, not a substitute for a worker heartbeat or proof that an external supplier is available. Automated tests cover unexpected exit, bounded backoff, retry exhaustion, child spawn errors, and no restart after intentional shutdown.
