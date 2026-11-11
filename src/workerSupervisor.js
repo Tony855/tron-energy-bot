@@ -8,6 +8,7 @@ function createWorkerSupervisor({
 }) {
   if (typeof spawnWorker !== 'function') throw new TypeError('spawnWorker is required');
   if (!Number.isInteger(maxRestarts) || maxRestarts < 0) throw new TypeError('maxRestarts must be a non-negative integer');
+  if (!Number.isInteger(baseDelayMs) || baseDelayMs < 100 || !Number.isInteger(maxDelayMs) || maxDelayMs < baseDelayMs) throw new TypeError('worker restart delays are invalid');
   let child = null, timer = null, stopped = true, generation = 0, restarts = 0;
 
   function setStatus(status, extra = {}) {
@@ -38,18 +39,22 @@ function createWorkerSupervisor({
     try { process = spawnWorker(); }
     catch (error) { handleFailure(currentGeneration, null, error); return; }
     child = process;
-    let errorSeen = false;
+    let settled = false;
     process.once('spawn', () => {
       if (!stopped && currentGeneration === generation) setStatus('running');
     });
     process.once('error', error => {
-      errorSeen = true;
+      if (settled) return;
+      settled = true;
+      if (child === process) child = null;
       logger.error('[worker] process error:', error.message);
+      handleFailure(currentGeneration, null, error);
     });
     process.once('exit', (code, signal) => {
+      if (settled) return;
+      settled = true;
       if (child === process) child = null;
-      if (errorSeen || code !== 0 || signal) handleFailure(currentGeneration, { code, signal });
-      else if (!stopped && currentGeneration === generation) handleFailure(currentGeneration, { code, signal });
+      handleFailure(currentGeneration, { code, signal });
     });
   }
 
