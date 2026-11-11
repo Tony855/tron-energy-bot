@@ -109,6 +109,8 @@ Do not invent a universal throughput target. Establish a baseline on production-
 
 After the load test, reconcile ledger entries to user balances and reconcile synthetic deposits/orders to their expected terminal states.
 
+The MariaDB integration suite also runs a bounded concurrency burst: 16 simultaneous identical ledger postings (exactly one posting), 32 concurrent durable-job claimers, and 32 concurrent Outbox claimers. These are correctness/stress regression checks, not a throughput benchmark or a substitute for production-like capacity testing.
+
 ## 8. Supplier sandbox and external financial side effects
 
 Supplier integration remains disabled until a real supplier adapter, sandbox endpoint, and credentials are supplied and independently reviewed. For each supplier, demonstrate:
