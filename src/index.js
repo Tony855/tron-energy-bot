@@ -6,8 +6,9 @@ const app = require('./web');
 const { fork } = require('node:child_process');
 const path = require('node:path');
 const { createBot } = require('./bot');
-const { initSocket, closeSocket } = require('./eventBridge');
+const { initSocket, closeSocket, publish } = require('./eventBridge');
 const { pool, closePool } = require('./db');
+const { createOutbox } = require('./outbox');
 const { loadConfig } = require('./config');
 
 let server;
@@ -15,6 +16,8 @@ let bot;
 let workerProcess;
 let shuttingDown = false;
 let shutdownTimeoutMs = 15000;
+let socketOutboxPromise;
+const socketOutbox = createOutbox({ pool });
 
 function listen(httpServer, port, host) {
   return new Promise((resolve, reject) => {
@@ -50,6 +53,27 @@ async function configureBotCommands(instance) {
   }
 }
 
+async function dispatchSocketOutbox() {
+  while (!shuttingDown) {
+    try {
+      const item = await socketOutbox.claim('socket.emit', 60);
+      if (!item) { await new Promise(resolve => setTimeout(resolve, 500)); continue; }
+      try {
+        const eventName = String(item.payload?.eventName || '');
+        if (!/^[a-zA-Z0-9:_-]{1,80}$/.test(eventName)) throw Object.assign(new Error('INVALID_SOCKET_EVENT'), { code: 'INVALID_SOCKET_EVENT' });
+        publish(eventName, item.payload?.data || {});
+        await socketOutbox.delivered({ id: item.id, leaseToken: item.lease_token });
+      } catch (error) {
+        await socketOutbox.failed({ id: item.id, leaseToken: item.lease_token, error });
+        console.error('[outbox] socket delivery failed', item.id, error.code || 'DELIVERY_FAILED');
+      }
+    } catch (error) {
+      console.error('[outbox] socket dispatcher error:', error.code || error.message);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+  }
+}
+
 async function shutdown(signal = 'shutdown') {
   if (shuttingDown) return;
   shuttingDown = true;
@@ -64,7 +88,7 @@ async function shutdown(signal = 'shutdown') {
     catch (error) { console.error('[lifecycle] bot stop failed:', error.message); }
   }
 
-  if (workerProcess && workerProcess.exitCode === null) {
+  if (socketOutboxPromise) await socketOutboxPromise.catch(() => {});\n\n  if (workerProcess && workerProcess.exitCode === null) {
     await new Promise(resolve => {
       const timer = setTimeout(() => {
         try { workerProcess.kill('SIGKILL'); } catch {}
@@ -104,7 +128,7 @@ async function main() {
   console.log('[web] listening on ' + config.host + ':' + config.port);
 
   // Keep durable webhook processing isolated from the HTTP request lifecycle.
-  workerProcess = fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' });
+  socketOutboxPromise = dispatchSocketOutbox();\n  workerProcess = fork(path.join(__dirname, 'worker.js'), [], { stdio: 'inherit' });
   workerProcess.on('error', error => {
     console.error('[worker] process error:', error.message);
     process.exitCode = 1;
