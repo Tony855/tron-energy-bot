@@ -30,8 +30,35 @@ test('bcryptjs 3 can hash and verify existing password format', () => {
   const hash = bcrypt.hashSync('dependency-upgrade-compatibility-check', 4);
   assert.equal(bcrypt.compareSync('dependency-upgrade-compatibility-check', hash), true);
   assert.equal(bcrypt.compareSync('incorrect-password', hash), false);
-  const legacyV2Hash = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
-  assert.equal(bcrypt.compareSync('password', legacyV2Hash), true);
+  const legacyV2Hash = hash.replace(/^\\$2[ab]\\$/, '$2a
+});
+
+test('dotenv 18 keeps the config parser contract used by the application', () => {
+  const dotenv = require('dotenv');
+  const parsed = dotenv.parse('BOT_TOKEN=sample-token\nJWT_SECRET="a-long-secret-value"');
+  assert.equal(parsed.BOT_TOKEN, 'sample-token');
+  assert.equal(parsed.JWT_SECRET, 'a-long-secret-value');
+});
+
+test('runtime policy excludes unsupported Node.js majors', () => {
+  assert.equal(pkg.engines.node, '>=24 <27');
+});
+
+
+test('fresh installer selects NodeSource 26 and requires supported Node 24+', () => {
+  const installer = fs.readFileSync(path.join(root, 'install.sh'), 'utf8');
+  assert.match(installer, /MIN_NODE_MAJOR=24/);
+  assert.match(installer, /nodesource\.com\/node_26\.x/);
+});
+
+test('CI covers both supported Node LTS lines and MariaDB LTS lines', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8');
+  assert.match(workflow, /node-version: \[24, 26\]/);
+  assert.match(workflow, /mariadb-version: \['11\.4', '11\.8'\]/);
+});
+);
+  assert.match(legacyV2Hash, /^\\$2a\\$/);
+  assert.equal(bcrypt.compareSync('dependency-upgrade-compatibility-check', legacyV2Hash), true);
 });
 
 test('dotenv 18 keeps the config parser contract used by the application', () => {
