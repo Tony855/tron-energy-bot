@@ -69,6 +69,15 @@ CREATE TABLE IF NOT EXISTS event_outbox (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Extend energy order state machine without changing existing rows.
-ALTER TABLE energy_orders
-  MODIFY COLUMN status ENUM('pending_provider','submitting','submission_unknown','processing','completed','failed','refunded','cancelled')
-  NOT NULL DEFAULT 'pending_provider';
+SET @energy_orders_exists = (
+  SELECT COUNT(*) FROM information_schema.tables
+   WHERE table_schema=DATABASE() AND table_name='energy_orders'
+);
+SET @energy_orders_ddl = IF(
+  @energy_orders_exists > 0,
+  "ALTER TABLE energy_orders MODIFY COLUMN status ENUM('pending_provider','submitting','submission_unknown','processing','completed','failed','refunded','cancelled') NOT NULL DEFAULT 'pending_provider'",
+  "SELECT 1"
+);
+PREPARE energy_orders_stmt FROM @energy_orders_ddl;
+EXECUTE energy_orders_stmt;
+DEALLOCATE PREPARE energy_orders_stmt;
