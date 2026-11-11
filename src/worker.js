@@ -10,6 +10,7 @@ const { createOutbox } = require('./outbox');
 const { sendTelegramMessage } = require('./notifier');
 const { verifyDepositTransfer } = require('./chainDepositVerify');
 const { creditRecharge } = require('./ledger');
+const { dispatchOutboxOnce } = require('./outboxDispatcher');
 
 const queue = createDurableQueue({ pool });
 const outbox = createOutbox({ pool });
@@ -111,18 +112,16 @@ async function processTronWebhook(job) {
 }
 
 async function dispatchTelegramOutbox() {
-  const item = await outbox.claim('telegram.send', 60);
-  if (!item) return false;
-  try {
-    const sent = await sendTelegramMessage(item.payload?.telegramId, String(item.payload?.text || ''));
-    if (!sent) throw Object.assign(new Error('TELEGRAM_DELIVERY_FAILED'), { code: 'TELEGRAM_DELIVERY_FAILED' });
-    await outbox.delivered({ id: item.id, leaseToken: item.lease_token });
-  } catch (error) {
-    await outbox.failed({ id: item.id, leaseToken: item.lease_token, error });
-    console.error('[worker] notification delivery failed', item.id, error.code || 'DELIVERY_FAILED');
-  }
-  return true;
-}
+  return dispatchOutboxOnce({
+    outbox,
+    eventType: 'telegram.send',
+    deliver: async item => {
+      const sent = await sendTelegramMessage(item.payload?.telegramId, String(item.payload?.text || ''));
+      if (!sent) throw Object.assign(new Error('TELEGRAM_DELIVERY_FAILED'), { code: 'TELEGRAM_DELIVERY_FAILED' });
+    },
+    logger: console
+  });
+
 
 async function handleJob(job) {
   if (job.job_type === 'tron.webhook.process') return processTronWebhook(job);
