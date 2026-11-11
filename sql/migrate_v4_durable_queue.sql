@@ -67,3 +67,8 @@ CREATE TABLE IF NOT EXISTS event_outbox (
   KEY idx_event_outbox_lease (status, lease_expires_at),
   KEY idx_event_outbox_aggregate (aggregate_type, aggregate_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Extend energy order state machine without changing existing rows.
+ALTER TABLE energy_orders
+  MODIFY COLUMN status ENUM('pending_provider','submitting','submission_unknown','processing','completed','failed','refunded','cancelled')
+  NOT NULL DEFAULT 'pending_provider';
