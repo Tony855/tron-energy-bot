@@ -913,6 +913,7 @@ app.get('/api/chain-audit', auth, async (req, res) => {
     counts, truncated, complete: !Object.values(truncated).some(Boolean),
     ...findings,
     disclaimer: '只检查本系统已索引的交易记录，不能发现尚未被扫描到的链上交易；异常只报告，不自动改余额。请在区块浏览器/可信节点复核。' });
+});
 
 app.get('/api/commissions', auth, async (req, res) => {
   const rows = await query(
