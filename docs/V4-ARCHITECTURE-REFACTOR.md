@@ -222,3 +222,10 @@ The ledger posting idempotency guard now binds a reused key to the complete post
 ## Supplier quote expiry guard (follow-up)
 
 Supplier quote validity is rechecked immediately before every create-order call. A quote that expired after display is skipped and never submitted; if no fresh quote remains, the router returns `PROVIDER_QUOTE_EXPIRED`. This is an application-side guard and does not replace supplier-side expiry enforcement or quote locking.
+
+
+## Fresh-install migration gate (follow-up)
+
+The Debian/Ubuntu fresh installer now selects the configured `tron_energy` database explicitly for every migration. Historical one-time migrations remain best-effort because the current base schema already contains some of their later columns and indexes; the V4 durable queue migration is strict and aborts installation on failure. Before configuring or starting the service, the installer verifies all four required V4 tables and the `submission_unknown` / `cancelled` order states.
+
+CI additionally creates an isolated MariaDB database, applies the fresh schema and V4 migration twice, and verifies the required tables and enum values. This is an ephemeral CI rehearsal only; it does not run against production data or replace the production backup/restore and rollback rehearsal.
