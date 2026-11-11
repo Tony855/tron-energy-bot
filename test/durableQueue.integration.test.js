@@ -122,20 +122,19 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const webhookRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash }));
     const webhookSignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(webhookRaw).digest('hex');
     const inbox = createEventInbox({ pool, secret: webhookSecret });
-    const [webhookResultA, webhookResultB] = await Promise.all([
-      inbox.acceptWebhook(webhookRaw, webhookSignature),
-      inbox.acceptWebhook(webhookRaw, webhookSignature)
-    ]);
-    const accepted = [webhookResultA, webhookResultB].find(result => result.accepted && !result.duplicate);
-    const duplicateEvent = [webhookResultA, webhookResultB].find(result => result.accepted && result.duplicate);
-    assert.ok(accepted, 'exactly one concurrent webhook should create the Inbox event');
-    assert.ok(duplicateEvent, 'the competing webhook should be acknowledged as a duplicate');
-    assert.equal(accepted.eventId, duplicateEvent.eventId);
+    const webhookBurst = await Promise.all(
+      Array.from({ length: 16 }, () => inbox.acceptWebhook(webhookRaw, webhookSignature))
+    );
+    const accepted = webhookBurst.filter(result => result.accepted && !result.duplicate);
+    const duplicateEvents = webhookBurst.filter(result => result.accepted && result.duplicate);
+    assert.equal(accepted.length, 1, 'exactly one concurrent webhook should create the Inbox event');
+    assert.equal(duplicateEvents.length, 15, 'all competing webhooks should be acknowledged as duplicates');
+    assert.ok(webhookBurst.every(result => result.eventId === accepted[0].eventId));
     const replayRaw = Buffer.from(JSON.stringify({ network: 'mainnet', txHash, amount: '999999999', retry: true }));
     const replaySignature = 'sha256=' + crypto.createHmac('sha256', webhookSecret).update(replayRaw).digest('hex');
     const replayResult = await inbox.acceptWebhook(replayRaw, replaySignature);
     assert.equal(replayResult.duplicate, true);
-    assert.equal(replayResult.eventId, accepted.eventId);
+    assert.equal(replayResult.eventId, accepted[0].eventId);
     const [inboxRows] = await pool.execute(
       'SELECT COUNT(*) count FROM event_inbox WHERE provider=? AND provider_event_id=?',
       ['tron', accepted.eventId]
