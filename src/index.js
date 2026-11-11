@@ -84,7 +84,7 @@ async function dispatchSocketOutbox() {
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
-
+}
 
 async function shutdown(signal = 'shutdown') {
   if (shuttingDown) return;
