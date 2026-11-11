@@ -27,7 +27,11 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
 
   async function acceptWebhook(raw, signature) {
     const event = parseWebhook(raw, signature, secret);
-    const bodyHash = crypto.createHash('sha256').update(raw).digest('hex');
+    // Hash the normalized event we actually persist and process, not transport-level
+    // JSON whitespace or ignored provider fields. This makes retries stable while
+    // still detecting an unexpected ID-to-payload collision in the durable inbox.
+    const canonicalPayload = JSON.stringify({ network: event.network, txHash: event.txHash });
+    const bodyHash = crypto.createHash('sha256').update(canonicalPayload).digest('hex');
     // Concurrent INSERT IGNORE requests for the same unique key can deadlock
     // under InnoDB gap/duplicate-key locking. Retry the whole idempotent unit
     // of work, never just the failed statement, with a strict bounded backoff.
@@ -50,7 +54,9 @@ function createEventInbox({ pool: dbPool, secret = process.env.TRON_EVENT_WEBHOO
           'SELECT id,status,body_sha256 FROM event_inbox WHERE provider=? AND provider_event_id=? FOR UPDATE',
           ['tron', event.providerEventId]
         );
-        if (!existing[0]) throw new Error('WEBHOOK_INBOX_CONFLICT');
+        if (!existing[0] || String(existing[0].body_sha256 || '').toLowerCase() !== bodyHash) {
+          throw Object.assign(new Error('WEBHOOK_INBOX_CONFLICT'), { code: 'WEBHOOK_INBOX_CONFLICT' });
+        }
         inboxId = existing[0].id;
       }
       const dedupeKey = 'tron:webhook:' + event.providerEventId;
