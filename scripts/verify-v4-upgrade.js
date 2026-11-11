@@ -22,7 +22,7 @@ async function main() {
     const legacyEnum = "ENUM('pending_provider','processing','completed','failed','refunded')";
     const v4Enum = "ENUM('pending_provider','submitting','submission_unknown','processing','completed','failed','refunded','cancelled')";
     const schema = fs.readFileSync(schemaPath, 'utf8')
-      .replace(/^CREATE DATABASE IF NOT EXISTS tron_energy\\b/m, 'CREATE DATABASE IF NOT EXISTS ' + database)
+      .replace(/^CREATE DATABASE IF NOT EXISTS tron_energy\b/m, 'CREATE DATABASE IF NOT EXISTS ' + database)
       .replace(/^USE tron_energy;/m, 'USE ' + database + ';')
       .replace(v4Enum, legacyEnum);
     if (schema.includes(v4Enum)) throw new Error('LEGACY_SCHEMA_ENUM_REPLACEMENT_FAILED');
@@ -41,10 +41,10 @@ async function main() {
     const [columns] = await connection.execute('SELECT column_type FROM information_schema.columns WHERE table_schema=? AND table_name=? AND column_name=?', [database, 'energy_orders', 'status']);
     const statusType = String(columns[0]?.COLUMN_TYPE || columns[0]?.column_type || '');
     if (!statusType.includes('submission_unknown') || !statusType.includes('cancelled')) throw new Error('UPGRADE_ENUM_STATES_MISSING');
-    process.stdout.write('[v4-upgrade] legacy schema migrated twice; existing order preserved\\n');
+    process.stdout.write('[v4-upgrade] legacy schema migrated twice; existing order preserved\n');
   } finally {
     await connection.query('DROP DATABASE IF EXISTS `' + database + '`').catch(() => {});
     await connection.end();
   }
 }
-main().catch(error => { process.stderr.write('[v4-upgrade] failed: ' + error.message + '\\n'); process.exitCode = 1; });
+main().catch(error => { process.stderr.write('[v4-upgrade] failed: ' + error.message + '\n'); process.exitCode = 1; });
