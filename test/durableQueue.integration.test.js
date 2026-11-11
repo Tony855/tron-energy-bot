@@ -52,6 +52,8 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     );
     assert.equal(Number(inboxRows[0].count), 1);
     assert.equal(Number(inboxJobs[0].count), 1);
+    await pool.execute('DELETE FROM background_jobs WHERE dedupe_key=?', ['tron:webhook:' + accepted.eventId]);
+    await pool.execute('DELETE FROM event_inbox WHERE provider=? AND provider_event_id=?', ['tron', accepted.eventId]);
 
     const outboxConn = await pool.getConnection();
     try {
