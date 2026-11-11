@@ -35,7 +35,7 @@ sudo ENV_FILE=/etc/tron-energy-bot.env /opt/tron-energy-bot/scripts/backup.sh
 sudo /opt/tron-energy-bot/scripts/verify-backup.sh /var/backups/tron-energy-bot/<UTC_TIMESTAMP>
 ```
 
-Copy the encrypted backup to the configured off-host destination. Verify remote checksums and record the manifest/checksum, not secret material.
+Copy the encrypted backup to the configured off-host destination. Verify remote checksums and record the manifest/checksum, not secret material. For production, set `REQUIRE_OFFSITE_BACKUP=true` in `/etc/tron-energy-bot.env` and configure `RCLONE_REMOTE` plus `RCLONE_PATH`; the backup job then fails closed if the remote is absent, `rclone` is unavailable, or the copy/check fails. Keep the rclone configuration available to the root backup service.
 
 Perform an isolated restore drill on a separate MariaDB instance or a disposable database that cannot be mistaken for production:
 
@@ -47,7 +47,7 @@ sudo ENV_FILE=/etc/tron-energy-bot.env \
 
 Validate table counts, critical ledger totals, user count, latest transaction/order IDs, and application-level read queries against the restored copy. Remove the drill database after evidence is captured. A CI fixture restore is not a production restore.
 
-**Gate:** backup decrypts, archive integrity passes, remote copy is verified, and isolated restore plus application-level checks pass. Otherwise do not migrate.
+**Gate:** backup decrypts, archive integrity passes, remote copy is verified, and isolated restore plus application-level checks pass. The five-minute operations monitor checks that the newest local backup has all encrypted artifacts, a manifest, and matching SHA-256 checksums; it does not decrypt the full archive or prove the remote copy on every poll. Perform the explicit decrypt/restore and remote verification above. Otherwise do not migrate.
 
 ## 4. Additive database migration and rollback boundary
 
@@ -73,7 +73,7 @@ Run this first on a production-like staging host using the exact service unit an
 5. Reboot the staging host and confirm systemd starts the service after network/database readiness.
 6. Inspect journal output for secrets, raw webhook bodies, private keys, and customer financial data.
 
-Capture timestamps, service state transitions, restart count, and queue lease recovery evidence. Do not perform destructive process-kill tests on production during normal customer traffic.
+Capture timestamps, service state transitions, restart count, and queue lease recovery evidence. The shipped application and operations-monitor units apply systemd sandboxing (restricted address families, no-new-privileges, private devices/tmp, kernel protection, and read-only filesystem policy except declared state paths); validate the units with `systemd-analyze security` on the target distribution. Do not perform destructive process-kill tests on production during normal customer traffic.
 
 **Gate:** recovery is bounded, no duplicate financial side effect occurs, and stale leases are reclaimed or dead-lettered according to policy.
 
