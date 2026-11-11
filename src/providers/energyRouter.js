@@ -34,7 +34,7 @@ function createEnergyProviderRouter({
     const settled = await Promise.allSettled(candidates.map(async provider => {
       const quote = await provider.getQuote(request);
       const price = String(quote?.price ?? '');
-      if (!/^(?:0|[1-9]\\d*)(?:\\.\\d{1,6})?$/.test(price) || Number(price) <= 0) {
+      if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(price) || Number(price) <= 0) {
         throw Object.assign(new Error('INVALID_PROVIDER_QUOTE'), { code: 'INVALID_PROVIDER_QUOTE' });
       }
       if (!quote.validUntil || Date.parse(quote.validUntil) <= now()) {
