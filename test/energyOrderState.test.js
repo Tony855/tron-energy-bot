@@ -23,7 +23,7 @@ test('energy state transition uses compare-and-set and writes outbox in caller t
   }};
   const result = await transitionEnergyOrder(conn, {
     id: 42, expectedStatus: 'processing', nextStatus: 'completed',
-    providerName: 'supplier-a', providerOrderId: 'external-1', txHash: 'a'.repeat(64)
+    providerName: 'supplier-a', providerOrderId: 'external-1', txHash: 'a'.repeat(64), fulfillmentVerified: true
   });
   assert.deepEqual(result, { id: 42, status: 'completed' });
   assert.match(calls[0].sql, /WHERE id=\? AND status=\?/);
@@ -36,4 +36,20 @@ test('energy state transition refuses concurrent stale updates', async () => {
   await assert.rejects(() => transitionEnergyOrder(conn, {
     id: 7, expectedStatus: 'processing', nextStatus: 'failed'
   }), { code: 'ENERGY_ORDER_STATE_CONFLICT' });
+});
+
+test('uncertain provider outcomes cannot be failed or completed without reconciliation', async () => {
+  const conn = { execute: async () => [{ affectedRows: 1 }, []] };
+  await assert.rejects(() => transitionEnergyOrder(conn, {
+    id: 8, expectedStatus: 'submission_unknown', nextStatus: 'failed'
+  }), { code: 'PROVIDER_RECONCILIATION_REQUIRED' });
+  await assert.rejects(() => transitionEnergyOrder(conn, {
+    id: 8, expectedStatus: 'processing', nextStatus: 'completed', txHash: 'a'.repeat(64)
+  }), { code: 'VERIFIED_FULFILLMENT_PROOF_REQUIRED' });
+  await assert.rejects(() => transitionEnergyOrder(conn, {
+    id: 8, expectedStatus: 'failed', nextStatus: 'refunded'
+  }), { code: 'REFUND_LEDGER_POSTING_REQUIRED' });
+  await assert.doesNotReject(() => transitionEnergyOrder(conn, {
+    id: 8, expectedStatus: 'submission_unknown', nextStatus: 'processing', providerReconciled: true
+  }));
 });
