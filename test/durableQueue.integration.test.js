@@ -85,13 +85,14 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     assert.equal(await outbox.delivered({ id: outboxItem.id, leaseToken: outboxItem.lease_token }), true);
     assert.equal(await outbox.delivered({ id: outboxItem.id, leaseToken: outboxItem.lease_token }), false);
 
+    const leaseConn = await pool.getConnection();
     const leaseKey = 'outbox-lease:' + suffix;
-    await outboxConn.beginTransaction();
-    await outbox.enqueue(outboxConn, {
+    await leaseConn.beginTransaction();
+    await outbox.enqueue(leaseConn, {
       eventKey: leaseKey, aggregateType: 'test', aggregateId: suffix,
       eventType: 'telegram.send', payload: { telegramId: '1', text: 'lease recovery' }
     });
-    await outboxConn.commit();
+    await leaseConn.commit();
     const leaseOne = await outbox.claim('telegram.send', 5);
     assert.equal(leaseOne.payload.text, 'lease recovery');
     await pool.execute(
@@ -105,12 +106,12 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     assert.equal(await outbox.delivered({ id: leaseTwo.id, leaseToken: leaseTwo.lease_token }), true);
 
     const deadKey = 'outbox-dead:' + suffix;
-    await outboxConn.beginTransaction();
-    await outbox.enqueue(outboxConn, {
+    await leaseConn.beginTransaction();
+    await outbox.enqueue(leaseConn, {
       eventKey: deadKey, aggregateType: 'test', aggregateId: suffix,
       eventType: 'telegram.send', payload: { telegramId: '1', text: 'dead letter' }
     });
-    await outboxConn.commit();
+    await leaseConn.commit();
     await pool.execute('UPDATE event_outbox SET attempts=11 WHERE event_key=?', [deadKey]);
     const finalAttempt = await outbox.claim('telegram.send', 5);
     assert.equal(finalAttempt.payload.text, 'dead letter');
@@ -121,6 +122,7 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const [deadOutbox] = await pool.execute('SELECT status,last_error_code FROM event_outbox WHERE event_key=?', [deadKey]);
     assert.equal(deadOutbox[0].status, 'dead');
     assert.equal(deadOutbox[0].last_error_code, 'TEST_FINAL_DELIVERY');
+    leaseConn.release();
 
     const first = await queue.enqueueJob({
       type: 'test.dedupe',
