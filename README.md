@@ -113,7 +113,7 @@ The migration applies `scripts/migrate-v3.1.js` and `scripts/migrate-v3.3.js` af
 sudo bash install.sh
 ```
 
-安装脚本会检查操作系统、systemd、项目目录和配置冲突；安装 Node.js 22+、MySQL、Nginx、age 与 rsync；收集 Telegram Token、网页管理员密码、MySQL 密码、管理员 Telegram 数字 ID、域名、TRONGrid Key 和事件 Webhook 密钥；安装生产依赖并运行 `npm run check` 与 `npm test`；初始化数据库并验证应用账号通过 TCP 连接；生成 JWT 密钥、bcrypt 管理员密码哈希、root-only 环境文件和 age 加密备份身份；配置 systemd、备份/运维 timer，并等待健康接口成功。
+安装脚本会检查操作系统、systemd、项目目录和配置冲突；安装 Node.js 24+（新装默认 Node.js 26 LTS）、MySQL、Nginx、age 与 rsync；收集 Telegram Token、网页管理员密码、MySQL 密码、管理员 Telegram 数字 ID、域名、TRONGrid Key 和事件 Webhook 密钥；安装生产依赖并运行 `npm run check` 与 `npm test`；初始化数据库并验证应用账号通过 TCP 连接；生成 JWT 密钥、bcrypt 管理员密码哈希、root-only 环境文件和 age 加密备份身份；配置 systemd、备份/运维 timer，并等待健康接口成功。
 
 安全和运行说明：
 
