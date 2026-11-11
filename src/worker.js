@@ -105,6 +105,7 @@ async function runWorker({ pollMs = Number(process.env.WORKER_POLL_MS || 1000) }
   while (!stopping) {
     let job;
     try {
+      if (await dispatchTelegramOutbox()) continue;
       job = await queue.claimJob({ leaseSeconds: 90 });
       if (!job) { await sleep(pollMs); continue; }
       try {
