@@ -19,7 +19,7 @@ test('package manifest and lockfile use the same engine and dependency specifica
 test('security-sensitive direct dependencies are on the approved refreshed versions', () => {
   assert.equal(lock.packages['node_modules/bcryptjs'].version, '3.0.3');
   assert.equal(lock.packages['node_modules/dotenv'].version, '18.0.10');
-  assert.equal(lock.packages['node_modules/express'].version, '4.22.3');
+  assert.equal(lock.packages['node_modules/express'].version, '5.3.0');
   assert.equal(lock.packages['node_modules/jsonwebtoken'].version, '9.0.3');
   assert.equal(lock.packages['node_modules/mysql2'].version, '3.24.6');
   assert.equal(lock.packages['node_modules/socket.io'].version, '4.8.4');
