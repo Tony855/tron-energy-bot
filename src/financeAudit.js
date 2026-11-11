@@ -19,8 +19,9 @@ function validatePaidWithdrawalProof(row, { contract, decimals = 6 } = {}) {
       !/^[a-f0-9]{64}$/i.test(proofHash) ||
       proofHash.toLowerCase() !== String(row.tx_hash).toLowerCase() ||
       !String(proof.contract || '').trim() ||
-      (contract && String(proof.contract).toLowerCase() !== String(contract).toLowerCase()) ||
-      String(proof.to || '').toLowerCase() !== String(row.destination_address || '').toLowerCase() ||
+      (contract && String(proof.contract) !== String(contract)) ||
+      // TRON Base58Check addresses are case-sensitive; never normalize them.
+      String(proof.to || '') !== String(row.destination_address || '') ||
       String(proof.rawAmount ?? proof.raw_amount ?? '') !== expectedRaw ||
       String(proof.receiptResult ?? proof.receipt_result ?? '').toUpperCase() !== 'SUCCESS') {
     return false;
@@ -84,10 +85,18 @@ function createFinanceAudit({ dbPool = defaultPool, env = process.env } = {}) {
       SELECT id withdrawal_id,amount,destination_address,status,tx_hash,chain_verified_at,chain_verified_json
         FROM withdrawal_requests WHERE status='paid'
        ORDER BY id DESC LIMIT 1001`);
+    const proofContract = String(env.TRON_USDT_CONTRACT || '').trim();
+    const configuredDecimals = env.TRON_USDT_DECIMALS == null || env.TRON_USDT_DECIMALS === ''
+      ? 6 : Number(env.TRON_USDT_DECIMALS);
+    const proofConfigValid = Boolean(proofContract) && Number.isInteger(configuredDecimals) &&
+      configuredDecimals >= 0 && configuredDecimals <= 18;
+    checks.paid_withdrawal_audit_configuration_invalid = paidRows.length && !proofConfigValid
+      ? [{ reason: 'TRON_USDT_CONTRACT must be configured and TRON_USDT_DECIMALS must be an integer from 0 to 18' }]
+      : [];
     checks.paid_withdrawal_missing_or_mismatched_chain_proof = paidRows
-      .filter(row => !validatePaidWithdrawalProof(row, {
-        contract: env.TRON_USDT_CONTRACT,
-        decimals: Number(env.TRON_USDT_DECIMALS || 6)
+      .filter(row => !proofConfigValid || !validatePaidWithdrawalProof(row, {
+        contract: proofContract,
+        decimals: configuredDecimals
       }))
       .map(row => ({ withdrawal_id: row.withdrawal_id || row.id, tx_hash: row.tx_hash || null }));
 

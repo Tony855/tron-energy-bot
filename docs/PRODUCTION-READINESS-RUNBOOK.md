@@ -146,7 +146,7 @@ If a gate is unavailable, mark it **blocked**, name the external dependency, and
 
 ## Finance audit evidence coverage (V4 follow-up)
 
-The read-only finance audit also checks that every paid withdrawal has a chain-verification timestamp and a parseable proof matching the stored transaction hash, destination, exact raw token amount, successful receipt result, and configured USDT contract (when configured). It checks credited referral commissions against their corresponding referral-bonus ledger entry. No finding is auto-repaired.
+The read-only finance audit also checks that every paid withdrawal has a chain-verification timestamp and a parseable proof matching the stored transaction hash, destination, exact raw token amount, successful receipt result, and configured USDT contract. Contract and destination comparisons are exact and case-sensitive because TRON Base58Check addresses are case-sensitive. If paid withdrawals exist but the trusted contract configuration is missing or token decimals are invalid, the audit fails closed. It checks credited referral commissions against their corresponding referral-bonus ledger entry. No finding is auto-repaired.
 
 Audit result sets use bounded queries. Each query fetches one row beyond its display limit; if that sentinel row exists, the report includes `audit_result_truncated` and returns `ok=false`. A truncated report is not a clean audit. Investigate and rerun with a deliberate pagination/export procedure before approval.
 
@@ -155,6 +155,6 @@ The finance audit is an integrity signal, not independent chain finality: it val
 
 ## TRON deposit proof and verification race controls
 
-A chain-deposit proof is accepted for credit only when all of the following match the pending recharge row and runtime configuration: a 64-character transaction hash, an explicit successful receipt result, confirmed transfer, configured USDT contract, configured token decimals, exact raw token amount, and the destination wallet address. Missing contract configuration fails closed. The proof is checked again inside the ledger credit path; an earlier verification timestamp alone is never sufficient.
+TRON contract and destination addresses are Base58Check values and are compared exactly, including case, in both the live deposit/withdrawal matcher and the stored-proof credit/audit checks. A chain-deposit proof is accepted for credit only when all of the following match the pending recharge row and runtime configuration: a 64-character transaction hash, an explicit successful receipt result, confirmed transfer, configured USDT contract, configured token decimals, exact raw token amount, and the destination wallet address. Missing contract configuration fails closed. The proof is checked again inside the ledger credit path; an earlier verification timestamp alone is never sufficient.
 
 The admin chain-verification route performs the external chain lookup before writing to avoid holding a database transaction during a slow RPC. It then uses a conditional update requiring the recharge row to remain pending and its source, transaction hash, and wallet association to remain unchanged. If approval/rejection wins the race, verification returns a conflict and does not overwrite the terminal order state.

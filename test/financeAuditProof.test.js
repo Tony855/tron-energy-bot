@@ -44,6 +44,13 @@ test('paid withdrawal audit rejects recipient, amount, receipt and contract mism
     chain_verified_json: { ...row().chain_verified_json, receiptResult: 'FAILED' }
   }), { contract: 'TContract' }), false);
   assert.equal(validatePaidWithdrawalProof(row(), { contract: 'TOther' }), false);
+  // TRON Base58Check addresses are case-sensitive, unlike transaction hashes.
+  assert.equal(validatePaidWithdrawalProof(row({
+    chain_verified_json: { ...row().chain_verified_json, to: 'treceiver' }
+  }), { contract: 'TContract' }), false);
+  assert.equal(validatePaidWithdrawalProof(row({
+    chain_verified_json: { ...row().chain_verified_json, contract: 'tcontract' }
+  }), { contract: 'TContract' }), false);
 });
 
 test('finance audit reports missing referral ledger and paid withdrawal proof', async () => {
@@ -65,6 +72,16 @@ test('finance audit reports missing referral ledger and paid withdrawal proof', 
   assert.equal(result.ok, false);
   assert.equal(result.counts.paid_withdrawal_missing_or_mismatched_chain_proof, 1);
   assert.equal(result.counts.credited_referral_missing_bonus_ledger, 1);
+});
+
+test('finance audit fails closed when paid withdrawals exist but trusted proof configuration is missing', async () => {
+  const responses = [[[]], [[]], [[]], [[]], [[]], [[row()]], [[]]];
+  let index = 0;
+  const audit = createFinanceAudit({ dbPool: { async query() { return responses[index++]; } }, env: {} });
+  const result = await audit.runFinanceAudit();
+  assert.equal(result.ok, false);
+  assert.equal(result.counts.paid_withdrawal_audit_configuration_invalid, 1);
+  assert.equal(result.counts.paid_withdrawal_missing_or_mismatched_chain_proof, 1);
 });
 
 test('finance audit fails closed when any capped finding set is truncated', async () => {

@@ -2,8 +2,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { verifyDepositTransfer, assertRechargeCanCredit } = require('../src/chainDepositVerify');
-const expected = { contract: 'usdt-contract', to: 'TDepositAddress', amount: '1.250000', decimals: 6 };
-const good = { txHash: 'ab'.repeat(32), contract: 'USDT-CONTRACT', from: 'TSender', to: 'tdepositaddress', rawAmount: '1250000', decimals: 6, confirmed: true, receiptResult: 'SUCCESS' };
+const expected = { contract: 'TUsdtContract', to: 'TDepositAddress', amount: '1.250000', decimals: 6 };
+const good = { txHash: 'ab'.repeat(32), contract: 'TUsdtContract', from: 'TSender', to: 'TDepositAddress', rawAmount: '1250000', decimals: 6, confirmed: true, receiptResult: 'SUCCESS' };
 
 test('deposit verification matches confirmed contract, destination and exact amount', () => {
   const r = verifyDepositTransfer([good], expected);
@@ -19,6 +19,8 @@ test('deposit verification fails closed without configured contract', () => {
 test('deposit verification rejects wrong contract, address, amount, decimals and unconfirmed events', () => {
   assert.throws(() => verifyDepositTransfer([{ ...good, contract: 'other' }], expected), /不匹配/);
   assert.throws(() => verifyDepositTransfer([{ ...good, to: 'other' }], expected), /不匹配/);
+  assert.throws(() => verifyDepositTransfer([{ ...good, contract: 'tUsdtContract' }], expected), /不匹配/);
+  assert.throws(() => verifyDepositTransfer([{ ...good, to: 'tDepositAddress' }], expected), /不匹配/);
   assert.throws(() => verifyDepositTransfer([{ ...good, rawAmount: '1250001' }], expected), /不匹配/);
   assert.throws(() => verifyDepositTransfer([{ ...good, decimals: 18 }], expected), /不匹配/);
   assert.throws(() => verifyDepositTransfer([{ ...good, confirmed: false }], expected), /不匹配/);
@@ -52,6 +54,8 @@ test('TRON recharge requires a matching chain proof; manual orders stay manual',
   assert.doesNotThrow(() => assertRechargeCanCredit(order, { walletAddress: good.to, env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }));
   assert.throws(() => assertRechargeCanCredit(order, { walletAddress: 'TWrongDepositAddress', env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }), /核验凭证无效/);
   assert.throws(() => assertRechargeCanCredit({ ...order, chain_verified_json: null }), /核验凭证无效/);
+  assert.throws(() => assertRechargeCanCredit(order, { walletAddress: 'tDepositAddress', env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }), /核验凭证无效/);
+  assert.throws(() => assertRechargeCanCredit(order, { walletAddress: good.to, env: { TRON_USDT_CONTRACT: 'tUsdtContract', TRON_USDT_DECIMALS: '6' } }), /核验凭证无效/);
   assert.throws(() => assertRechargeCanCredit({
     ...order, chain_verified_json: { ...order.chain_verified_json, tx_hash: 'not-a-hash' }
   }, { walletAddress: good.to, env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }), /核验凭证无效/);
