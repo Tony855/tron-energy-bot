@@ -142,3 +142,12 @@ The release owner must mark every item and attach evidence:
 - [ ] Post-deployment smoke checks and monitoring owner are assigned.
 
 If a gate is unavailable, mark it **blocked**, name the external dependency, and keep the PR/release in Draft. Do not convert missing evidence into a pass.
+
+
+## Finance audit evidence coverage (V4 follow-up)
+
+The read-only finance audit also checks that every paid withdrawal has a chain-verification timestamp and a parseable proof matching the stored transaction hash, destination, exact raw token amount, successful receipt result, and configured USDT contract (when configured). It checks credited referral commissions against their corresponding referral-bonus ledger entry. No finding is auto-repaired.
+
+Audit result sets use bounded queries. Each query fetches one row beyond its display limit; if that sentinel row exists, the report includes `audit_result_truncated` and returns `ok=false`. A truncated report is not a clean audit. Investigate and rerun with a deliberate pagination/export procedure before approval.
+
+The finance audit is an integrity signal, not independent chain finality: it validates the stored withdrawal proof against the stored withdrawal record, but does not re-query the TRON network during each audit. Independent on-chain reconciliation remains a separate release gate.
