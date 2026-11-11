@@ -146,7 +146,7 @@ If a gate is unavailable, mark it **blocked**, name the external dependency, and
 
 ## Finance audit evidence coverage (V4 follow-up)
 
-The read-only finance audit also checks that every paid withdrawal has a chain-verification timestamp and a parseable proof matching the stored transaction hash, destination, exact raw token amount, successful receipt result, and configured USDT contract (when configured). It checks credited referral commissions against their corresponding referral-bonus ledger entry. No finding is auto-repaired.
+The read-only finance audit also checks that every paid withdrawal has a chain-verification timestamp and a parseable proof matching the stored transaction hash, destination, exact raw token amount, successful receipt result, and configured USDT contract. Contract and destination comparisons are exact and case-sensitive because TRON Base58Check addresses are case-sensitive. If paid withdrawals exist but the trusted contract configuration is missing or token decimals are invalid, the audit fails closed. It checks credited referral commissions against their corresponding referral-bonus ledger entry. No finding is auto-repaired.
 
 Audit result sets use bounded queries. Each query fetches one row beyond its display limit; if that sentinel row exists, the report includes `audit_result_truncated` and returns `ok=false`. A truncated report is not a clean audit. Investigate and rerun with a deliberate pagination/export procedure before approval.
 
