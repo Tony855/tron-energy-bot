@@ -30,6 +30,7 @@ test('queue requires a database pool and validates job contracts', async () => {
   await assert.rejects(queue.enqueueJob({ type: '../unsafe', payload: {} }), /Invalid job type/);
   await assert.rejects(queue.enqueueJob({ type: 'deposit.verify', payload: [] }), /payload/);
   await assert.rejects(queue.enqueueJob({ type: 'deposit.verify', payload: {}, maxAttempts: 0 }), /maxAttempts/);
+  await assert.rejects(queue.enqueueJob({ type: 'deposit.verify', payload: {}, dedupeKey: 'x'.repeat(191) }), /dedupeKey/);
   const result = await queue.enqueueJob({ type: 'deposit.verify', payload: { txHash: 'abc' }, dedupeKey: 'deposit:abc' });
   assert.equal(result.id, 7);
   assert.equal(calls.length, 1);
