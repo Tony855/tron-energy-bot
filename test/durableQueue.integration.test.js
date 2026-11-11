@@ -122,11 +122,9 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
     const [expiredRows] = await pool.execute('SELECT status FROM event_inbox WHERE id=?', [expiredInboxId]);
     assert.equal(expiredRows[0].status, 'received');
 
-    // Keep these synthetic lease fixtures out of subsequent global queue claims.
-    await pool.execute(
-      "UPDATE background_jobs SET status='completed',lease_token=NULL,lease_expires_at=NULL WHERE id IN (?,?,?)",
-      [liveJobId, staleJobId, expiredJobId]
-    );
+    // Remove synthetic lease fixtures so later global queue claims see only their own jobs.
+    await pool.execute('DELETE FROM background_jobs WHERE id IN (?,?,?)', [liveJobId, staleJobId, expiredJobId]);
+    await pool.execute('DELETE FROM event_inbox WHERE id IN (?,?,?)', [liveInboxId, staleInboxId, expiredInboxId]);
 
     await pool.query(`CREATE TABLE users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
