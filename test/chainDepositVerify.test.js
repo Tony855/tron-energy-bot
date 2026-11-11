@@ -49,12 +49,12 @@ test('TRON recharge requires a matching chain proof; manual orders stay manual',
       raw_amount: '1250000', amount: '1.250000'
     }
   };
-  assert.doesNotThrow(() => assertRechargeCanCredit(order, { walletAddress: good.to }));
-  assert.throws(() => assertRechargeCanCredit(order, { walletAddress: 'TWrongDepositAddress' }), /核验凭证无效/);
+  assert.doesNotThrow(() => assertRechargeCanCredit(order, { walletAddress: good.to, env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }));
+  assert.throws(() => assertRechargeCanCredit(order, { walletAddress: 'TWrongDepositAddress', env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }), /核验凭证无效/);
   assert.throws(() => assertRechargeCanCredit({ ...order, chain_verified_json: null }), /核验凭证无效/);
   assert.throws(() => assertRechargeCanCredit({
     ...order, chain_verified_json: { ...order.chain_verified_json, tx_hash: 'not-a-hash' }
-  }, { walletAddress: good.to }), /核验凭证无效/);
+  }, { walletAddress: good.to, env: { TRON_USDT_CONTRACT: good.contract, TRON_USDT_DECIMALS: '6' } }), /核验凭证无效/);
   assert.throws(() => assertRechargeCanCredit({
     ...order, chain_verified_json: { ...order.chain_verified_json, raw_amount: '1250001' }
   }, { walletAddress: good.to }), /核验凭证无效/);
