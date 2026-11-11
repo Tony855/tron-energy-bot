@@ -6,8 +6,11 @@ const { pool } = require('./db');
 const { createDurableQueue } = require('./durableQueue');
 const { getConfirmedTrc20Transfer } = require('./tron');
 const { saveTransfer } = require('./monitor');
+const { createOutbox } = require('./outbox');
+const { sendTelegramMessage } = require('./notifier');
 
 const queue = createDurableQueue({ pool });
+const outbox = createOutbox({ pool });
 let stopping = false;
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -76,6 +79,20 @@ async function processTronWebhook(job) {
     [inboxId]
   );
   return { saved };
+}
+
+async function dispatchTelegramOutbox() {
+  const item = await outbox.claim('telegram.send', 60);
+  if (!item) return false;
+  try {
+    const sent = await sendTelegramMessage(item.payload?.telegramId, String(item.payload?.text || ''));
+    if (!sent) throw Object.assign(new Error('TELEGRAM_DELIVERY_FAILED'), { code: 'TELEGRAM_DELIVERY_FAILED' });
+    await outbox.delivered({ id: item.id, leaseToken: item.lease_token });
+  } catch (error) {
+    await outbox.failed({ id: item.id, leaseToken: item.lease_token, error });
+    console.error('[worker] notification delivery failed', item.id, error.code || 'DELIVERY_FAILED');
+  }
+  return true;
 }
 
 async function handleJob(job) {
