@@ -324,12 +324,14 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
       queue.completeJob({ id: job.id, leaseToken: job.lease_token })
     ));
     assert.equal(burstCompletions.filter(Boolean).length, burstSize);
-    const [burstStatus] = await pool.execute(
-      'SELECT status,COUNT(*) count FROM background_jobs WHERE dedupe_key LIKE ? GROUP BY status',
-      [burstPrefix + '%']
+    const burstJobIds = burstClaims.map(job => job.id);
+    const [burstStatusRows] = await pool.execute(
+      `SELECT id,status FROM background_jobs WHERE id IN (${burstJobIds.map(() => '?').join(',')})`,
+      burstJobIds
     );
-    assert.equal(burstStatus.status, 'completed');
-    assert.equal(Number(burstStatus.count), burstSize);
+    assert.equal(burstStatusRows.length, burstSize);
+    assert.ok(burstStatusRows.every(row => row.status === 'completed'),
+      'every claimed burst job must be completed');
 
     // Exercise the same burst pattern for notification dispatch claims.
     const outboxPrefix = 'integration-outbox-burst:' + suffix + ':';
@@ -364,12 +366,14 @@ test('durable queue supports MySQL idempotency, concurrent claims, lease recover
       outbox.delivered({ id: event.id, leaseToken: event.lease_token })
     ));
     assert.equal(outboxCompletions.filter(Boolean).length, burstSize);
-    const [outboxStatus] = await pool.execute(
-      'SELECT status,COUNT(*) count FROM event_outbox WHERE event_key LIKE ? GROUP BY status',
-      [outboxPrefix + '%']
+    const burstOutboxIds = outboxClaims.map(event => event.id);
+    const [outboxStatusRows] = await pool.execute(
+      `SELECT id,status FROM event_outbox WHERE id IN (${burstOutboxIds.map(() => '?').join(',')})`,
+      burstOutboxIds
     );
-    assert.equal(outboxStatus.status, 'delivered');
-    assert.equal(Number(outboxStatus.count), burstSize);
+    assert.equal(outboxStatusRows.length, burstSize);
+    assert.ok(outboxStatusRows.every(row => row.status === 'delivered'),
+      'every claimed Outbox burst event must be delivered');
   } finally {
     await pool.end();
   }
