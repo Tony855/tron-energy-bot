@@ -61,11 +61,11 @@ test('TRON webhook parser rejects bad signatures and malformed event envelopes',
 test('duplicate webhook retries compare a canonical business payload, not raw JSON formatting', async () => {
   const secret = 'unit-test-webhook-secret';
   const txHash = 'c'.repeat(64);
-  const retry = Buffer.from('{
+  const retry = Buffer.from(`{
   "network": "mainnet",
-  "txHash": "' + txHash + '",
+  "txHash": "${txHash}",
   "providerNoise": "two"
-}');
+}`);
   const canonicalHash = crypto.createHash('sha256')
     .update(JSON.stringify({ network: 'mainnet', txHash })).digest('hex');
   const pool = fakePool({ existingHash: canonicalHash });
