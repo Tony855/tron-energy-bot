@@ -41,7 +41,7 @@ chown -R tronbot:tronbot "$STAGE" 2>/dev/null || true
 
 # Validate staged release before stopping the live service.
 cd "$STAGE"
-npm install --omit=dev
+npm ci --omit=dev
 npm run check
 npm test
 # Apply legacy compatibility migrations, then the additive/idempotent V4 migration.
