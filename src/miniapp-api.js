@@ -3,6 +3,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { query } = require('./db');
+const { getEnergyProvider } = require('./providers/energyProvider');
 const { normalizeLang } = require('./i18n');
 const { getAccount, getTrc20Balance, validateAddress } = require('./tron');
 
@@ -240,6 +241,10 @@ router.post('/unbind-wallet', async (req, res) => {
 // ------------------ 购买能量功能 ------------------
 router.post('/buy-energy', async (req, res) => {
   try {
+    const provider = getEnergyProvider();
+    if (!provider.enabled) {
+      return res.status(503).json({ error: msg(req.lang, '能量服务暂不可用，请稍后再试', 'Energy service is temporarily unavailable') });
+    }
     const { receiverAddress, energyAmount, durationMinutes } = req.body;
     const userId = req.miniUser.id;
 
