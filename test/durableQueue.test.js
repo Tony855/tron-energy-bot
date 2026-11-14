@@ -37,6 +37,54 @@ test('queue requires a database pool and validates job contracts', async () => {
 });
 
 
+test('claimJob retries MariaDB deadlocks and lock wait timeouts with bounded backoff', async () => {
+  const calls = [];
+  const delays = [];
+  let attempt = 0;
+  const pool = {
+    async execute(sql, params) {
+      calls.push({ sql, params });
+      attempt++;
+      if (attempt === 1 || attempt === 3) {
+        const error = new Error('transient database contention');
+        error.code = attempt === 1 ? 'ER_LOCK_DEADLOCK' : 'ER_LOCK_WAIT_TIMEOUT';
+        throw error;
+      }
+      if (attempt === 4) return [{ affectedRows: 1 }, []];
+      if (attempt === 5) return [[{ id: 99, job_type: 'test.retry', payload_json: '{}', attempts: 1, max_attempts: 8, lease_token: 'lease-token' }], []];
+      return [{ affectedRows: 0 }, []];
+    }
+  };
+  const queue = createDurableQueue({
+    pool,
+    uuid: () => 'lease-token',
+    sleep: async ms => { delays.push(ms); }
+  });
+  const job = await queue.claimJob();
+  assert.equal(job.id, 99);
+  assert.deepEqual(delays, [10, 10]);
+  assert.equal(calls.length, 5);
+  assert.match(calls[0].sql, /status='dead'/);
+  assert.match(calls[1].sql, /status='dead'/);
+  assert.match(calls[2].sql, /status='processing'/);
+  assert.match(calls[3].sql, /status='processing'/);
+});
+
+test('claimJob does not retry non-transient database errors', async () => {
+  let calls = 0;
+  const pool = {
+    async execute() {
+      calls++;
+      const error = new Error('invalid SQL');
+      error.code = 'ER_PARSE_ERROR';
+      throw error;
+    }
+  };
+  const queue = createDurableQueue({ pool, sleep: async () => assert.fail('must not sleep') });
+  await assert.rejects(queue.claimJob(), { code: 'ER_PARSE_ERROR' });
+  assert.equal(calls, 1);
+});
+
 test('renewJob extends only the current live lease token', async () => {
   const calls = [];
   const pool = { async execute(sql, params) { calls.push({ sql, params }); return [{ affectedRows: 1 }]; } };
@@ -45,4 +93,41 @@ test('renewJob extends only the current live lease token', async () => {
   assert.match(calls[0].sql, /lease_expires_at>UTC_TIMESTAMP/);
   assert.match(calls[0].sql, /lease_token=\?/);
   assert.deepEqual(calls[0].params, [120, 9, 'lease-9']);
+});
+
+test('claimJob retries SQLSTATE 40001 serialization failures', async () => {
+  const delays = [];
+  let calls = 0;
+  const pool = {
+    async execute() {
+      calls++;
+      if (calls === 1) {
+        const error = new Error('serialization failure');
+        error.sqlState = '40001';
+        throw error;
+      }
+      return [{ affectedRows: 0 }, []];
+    }
+  };
+  const queue = createDurableQueue({ pool, sleep: async ms => { delays.push(ms); } });
+  assert.equal(await queue.claimJob(), null);
+  assert.equal(calls, 3, 'cleanup retry, cleanup success, and claim update');
+  assert.deepEqual(delays, [10]);
+});
+
+test('claimJob stops after four transient claim-update attempts', async () => {
+  const delays = [];
+  let calls = 0;
+  const pool = {
+    async execute() {
+      calls++;
+      const error = new Error('deadlock');
+      error.code = 'ER_LOCK_DEADLOCK';
+      throw error;
+    }
+  };
+  const queue = createDurableQueue({ pool, sleep: async ms => { delays.push(ms); } });
+  await assert.rejects(queue.claimJob(), { code: 'ER_LOCK_DEADLOCK' });
+  assert.equal(calls, 4);
+  assert.deepEqual(delays, [10, 20, 40]);
 });

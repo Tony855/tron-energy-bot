@@ -16,9 +16,23 @@ function safeErrorCode(error) {
   return /^[A-Z0-9_]{1,80}$/.test(code) ? code : 'JOB_FAILED';
 }
 
-function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.random } = {}) {
+function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.random, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
   if (!pool || typeof pool.execute !== 'function') {
     throw new TypeError('A MySQL-compatible pool is required');
+  }
+
+  async function executeClaimUpdate(sql, params) {
+    const maxAttempts = 4;
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await pool.execute(sql, params);
+      } catch (error) {
+        const retryable = error?.code === 'ER_LOCK_DEADLOCK' ||
+          error?.code === 'ER_LOCK_WAIT_TIMEOUT' || error?.sqlState === '40001';
+        if (!retryable || attempt >= maxAttempts - 1) throw error;
+        await sleep(Math.min(80, 10 * (2 ** attempt)));
+      }
+    }
   }
 
   async function enqueueJob({ type, payload, dedupeKey = null, priority = 0, maxAttempts = 8, availableAt = null }) {
@@ -47,12 +61,12 @@ function createDurableQueue({ pool, uuid = crypto.randomUUID, random = Math.rand
       throw new Error('leaseSeconds must be between 5 and 3600');
     }
     const leaseToken = uuid();
-    await pool.execute(
+    await executeClaimUpdate(
       `UPDATE background_jobs
           SET status='dead', lease_token=NULL, lease_expires_at=NULL, last_error_code='LEASE_EXPIRED'
         WHERE status='processing' AND lease_expires_at<=UTC_TIMESTAMP(3) AND attempts>=max_attempts`
     );
-    const [result] = await pool.execute(
+    const [result] = await executeClaimUpdate(
       `UPDATE background_jobs
           SET status='processing', lease_token=?,
               lease_expires_at=DATE_ADD(UTC_TIMESTAMP(3), INTERVAL ? SECOND),
